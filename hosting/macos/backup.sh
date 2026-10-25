@@ -14,7 +14,20 @@ if launchctl print "$domain/$label" >/dev/null 2>&1; then
   restart=1
 fi
 trap 'if [ "$restart" = 1 ]; then launchctl bootstrap "$domain" "$plist"; fi' EXIT
-# launchctl bootout waits for service teardown. All application state is here.
+# Wait for the old listener to stop before reading mutable files.
+python3 - "$service_home/service.json" <<'PYTHON'
+import json, socket, sys, time
+port = json.load(open(sys.argv[1]))['port']
+for attempt in range(60):
+    try:
+        with socket.create_connection(('127.0.0.1', port), timeout=1):
+            pass
+    except OSError:
+        break
+    time.sleep(0.5)
+else:
+    raise SystemExit('Server still listening; backup aborted to avoid an inconsistent snapshot')
+PYTHON
 tar -czf "$archive" -C "$service_home" state service.json
 chmod 600 "$archive"
 printf '%s\n' "$archive"

@@ -41,7 +41,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
-      LH_IOS_APP_ID: ${{ inputs.bundle_id || vars.IOS_BUNDLE_ID || 'com.example.learnharness' }}
+      LH_IOS_APP_ID: ${{ inputs.bundle_id || vars.IOS_BUNDLE_ID || 'com.paperfront.learnharness' }}
     steps:
       - uses: actions/checkout@v7
       - uses: maxim-lobanov/setup-xcode@v1

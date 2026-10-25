@@ -1,5 +1,7 @@
 # iOS build and TestFlight delivery
 
+Confirmed app identity: **LearnGraphHarness**, bundle ID `com.paperfront.learnharness`.
+
 The shared React client is bundled locally in Capacitor. It connects to a separately
 running learning server; it does not package Node, Next.js, model credentials, or
 learning records. See `remote-server.md` for server setup.

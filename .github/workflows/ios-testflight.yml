@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      inspect_only:
+        description: Read Apple build processing and testing-group status only
+        type: boolean
+        default: false
       upload_testflight:
         description: Archive and upload to TestFlight after validation
         type: boolean
@@ -22,6 +26,7 @@ concurrency:
 
 jobs:
   validate:
+    if: ${{ !inputs.inspect_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -115,3 +120,19 @@ jobs:
           if [ -n "$ASC_KEY_ID" ]; then
             rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           fi
+
+  inspect:
+    if: github.event_name == 'workflow_dispatch' && inputs.inspect_only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+      - name: Read Apple processing and group assignment
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: node scripts/ios-status.mjs

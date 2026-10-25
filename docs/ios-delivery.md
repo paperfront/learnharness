@@ -50,8 +50,11 @@ App Store Connect configuration, not proof supplied by a successful upload comma
 
 ## Validation status
 
-No signed LearnHarness build or TestFlight upload has been verified yet. Repository
-secrets were absent at bootstrap. Actual iPhone checks must cover keyboard/safe area,
+Signed archive, IPA export, and TestFlight upload succeeded on 2026-10-25 for
+LearnGraphHarness 0.3.7 (build 3.1), commit 919f52e:
+https://github.com/paperfront/learnharness/actions/runs/40240932935 .
+Apple processing and tester availability have not yet been verified.
+Actual iPhone checks must cover keyboard/safe area,
 lesson text/math, quiz submission, interactive demo, graph gestures, reconnect after
 backgrounding, and switching servers without retaining the prior server's data.
 

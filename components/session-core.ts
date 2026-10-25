@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 /**
  * THE SESSION MODEL (Wave D): the chat session's state machine, extracted
  * PURE — no React, one injectable fetch — so the attach/replay/settle/
@@ -244,7 +245,7 @@ export class SessionModel {
 		// unbound makes every call throw "Illegal invocation" in the browser
 		// (Node's undici doesn't care, so the tests never saw it). Always go
 		// through a receiver-preserving wrapper.
-		this.fetch = opts.fetch ?? ((...args) => globalThis.fetch(...args));
+		this.fetch = opts.fetch ?? apiFetch;
 		this.pollMs = opts.pollMs ?? TURN_POLL_MS;
 		this.waitMaxMs = opts.waitMaxMs ?? TURN_WAIT_MAX_MS;
 		this.onChange = opts.onChange;

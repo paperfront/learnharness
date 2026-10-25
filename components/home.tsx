@@ -1,7 +1,9 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation";
 import { CornerDownLeftIcon, DumbbellIcon } from "lucide-react";
 import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
@@ -137,7 +139,7 @@ export function Home({
 			// graph-context marker as message[0] (a separate custom message
 			// before the learner's first user message, propositions + the
 			// chains among them); the prompt stays the learner's own words.
-			const res = await fetch("/api/chats", {
+			const res = await apiFetch("/api/chats", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -157,7 +159,7 @@ export function Home({
 	};
 
 	return (
-		<div className="relative h-dvh">
+		<div className="relative h-full">
 			{/* Window-drag strip (merged chrome, owner 2026-09-17): a dedicated
 			    mask element, deliberately FIRST in the DOM. Electron's app-region
 			    mask resolves by DOM order — a no-drag element subtracts only drag

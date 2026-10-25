@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -93,7 +95,7 @@ export function DeleteSessionDialog({
 		setBusy(true);
 		setFailure(null);
 		try {
-			const res = await fetch(`/api/chats/${chat.id}?mode=${mode}`, { method: "DELETE" });
+			const res = await apiFetch(`/api/chats/${chat.id}?mode=${mode}`, { method: "DELETE" });
 			const body = (await res.json()) as {
 				ok?: boolean;
 				error?: string;

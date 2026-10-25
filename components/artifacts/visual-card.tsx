@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useContext, useState } from "react";
 import { ChatActionsContext } from "@/components/chat";
@@ -73,7 +75,7 @@ export function VisualOutputCard({
 	const toggleInverted = (next: boolean) => {
 		setInverted(next);
 		if (!actions?.chatId || !messageId) return;
-		void fetch(`/api/chats/${actions.chatId}/artifact-ui`, {
+		void apiFetch(`/api/chats/${actions.chatId}/artifact-ui`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ input: { messageId, inverted: next } }),

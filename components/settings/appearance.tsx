@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 /**
  * THE APPEARANCE APPLICATION (thin settings wave, 2026-09-19): the settings
  * record's appearance section actually DOES something — resolved against
@@ -155,7 +157,7 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
 	// delta; resolution happens here against the compiled factory.
 	useEffect(() => {
 		let alive = true;
-		fetch("/api/settings")
+		apiFetch("/api/settings")
 			.then((r) => r.json())
 			.then((body: { settings?: Record<string, unknown> }) => {
 				if (!alive) return;

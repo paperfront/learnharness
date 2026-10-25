@@ -71,6 +71,12 @@ export function useChatSession({ chatId, initialMessages, initiallyInFlight }: U
 		};
 	}, [initiallyInFlight, model]);
 
+    useEffect(() => {
+        const resume = () => { if (document.visibilityState !== "hidden" && model.getState().status !== "submitted") void model.resumeStream(); };
+        document.addEventListener("visibilitychange", resume); window.addEventListener("online", resume);
+        return () => { document.removeEventListener("visibilitychange", resume); window.removeEventListener("online", resume); };
+    }, [model]);
+
 	// The view + state, derived per model change from the model.
 	const state = useMemo<SessionState>(() => model.getState(), [model, version] as const);
 

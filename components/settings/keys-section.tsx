@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 /**
  * The Keys section (wave-5 polish, 2026-09-21 — owner design): a MINIMAL
  * key-value table. Provider left, masked key right, no description hints
@@ -352,7 +354,7 @@ export function KeysSection({
 	}, [openRow, adding]);
 
 	const reload = () =>
-		fetch("/api/keys")
+		apiFetch("/api/keys")
 			.then((r) => r.json())
 			.then((body: KeysResponse) => {
 				setStatuses(body.keys ?? []);
@@ -373,7 +375,7 @@ export function KeysSection({
 	}, [initialRow]);
 
 	async function saveKey(id: string, value: string): Promise<string | null> {
-		const res = await fetch(`/api/keys/${id}`, {
+		const res = await apiFetch(`/api/keys/${id}`, {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ value }),
@@ -391,7 +393,7 @@ export function KeysSection({
 	}
 
 	async function deleteKey(id: string): Promise<void> {
-		await fetch(`/api/keys/${id}`, { method: "DELETE" }).catch(() => undefined);
+		await apiFetch(`/api/keys/${id}`, { method: "DELETE" }).catch(() => undefined);
 		await reload();
 		notifySettingsSaved("keys");
 	}

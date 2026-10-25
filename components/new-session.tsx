@@ -1,7 +1,9 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ai-elements/conversation";
 import { Composer } from "@/components/composer";
 import { DictationBar, joinDictation, useDictation } from "@/components/dictation";
@@ -158,7 +160,7 @@ export function DraftShell({
 		 * (the only pointer-events-auto spot), the empty state carrying the
 		 * orientation. The chain picker then owns the column top exactly
 		 * like the graph view's — no stacked bars. */
-		<div className="relative flex h-dvh">
+		<div className="relative flex h-full">
 			{/* Window-drag strip — deliberately FIRST in the DOM (the mask
 			    law: no-drag subtraction resolves by DOM order, so every
 			    carved control later in the tree subtracts correctly). */}
@@ -259,7 +261,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 			setPickerOpen(true);
 			return;
 		}
-		void fetch("/api/graph")
+		void apiFetch("/api/graph")
 			.then((r) => r.json() as Promise<GraphSnapshot>)
 			.then((snap) => {
 				setSnapshot(snap);

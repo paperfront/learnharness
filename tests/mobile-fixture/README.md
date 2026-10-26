@@ -67,3 +67,13 @@ scroll-intent path. Existing dock state and broader regression tests pass.
 Safe-area padding is retained once inside the visible surface, including a
 small bottom gap while the keyboard is shown; physical device evidence should
 precede any attempt to remove that gap or change native WebView scrolling.
+
+The new-session transport regression also uses only synthetic in-memory replies:
+
+```sh
+node tests/mobile-fixture/verify-new-session.mjs
+```
+
+It checks authenticated remote creation through the real NewSession component,
+network/HTTP/invalid JSON/invalid payload failures, preserved drafts and retry,
+practice creation, and duplicate submission protection at a phone viewport.

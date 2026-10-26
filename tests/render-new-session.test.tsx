@@ -202,3 +202,19 @@ describe("the practice draft (?mode=practice, 2026-10-04)", () => {
 		assert.deepEqual(body, { title: "orbital mechanics" });
 	});
 });
+
+describe("draft creation failures", () => {
+	it("rejects failed HTTP responses even when they contain an id", async () => {
+		await assert.rejects(startDraftSession("keep draft", (async () => Response.json({id:"bad"}, {status:401})) as typeof fetch), /401/);
+	});
+	it("rejects malformed success payloads instead of navigating", async () => {
+		for (const value of [null, {}, {id:null}, {id:""}, {id:"../settings"}]) {
+			await assert.rejects(startDraftSession("keep draft", (async () => Response.json(value)) as typeof fetch), /invalid response/);
+		}
+	});
+	it("renders a recoverable creation error beside the preserved draft", () => {
+		const html = renderToStaticMarkup(<DraftShell busy={false} text="preserved draft" onChange={()=>{}} onSend={()=>{}} error="Try again"/>);
+		assert.match(html, /role="alert"/);
+		assert.match(html, /preserved draft/);
+	});
+});

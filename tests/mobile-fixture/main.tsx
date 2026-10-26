@@ -31,12 +31,28 @@ const model = {provider:"fixture",id:"synthetic-model"};
 const settings = { models: Object.fromEntries(["strong","cheap","vision"].map(slot => [slot,{model,thinkingLevel:"off"}])) };
 const record = {id:"mobile-fixture",title:"Phone layout check",kind:scenario === "practice" ? "practice":"teach",messages,settings:{model,thinkingLevel:"off"}};
 const requests: string[] = [];
+const navigations: string[] = [];
+const creates: unknown[] = [];
+Object.assign(window, {__fixtureCreates: creates});
+Object.assign(window, {__fixtureNavigations: navigations});
 Object.assign(window, {__fixtureRequests: requests});
 window.fetch = async (request, init) => {
  const url = new URL(typeof request === "string" ? request : request instanceof URL ? request : request.url, location.origin);
  const method = init?.method ?? "GET";
  requests.push(`${method} ${url.pathname}`);
- if (url.origin !== location.origin) throw new Error("External network is disabled in this fixture");
+ if (params.has("remote")) {
+  if (url.origin !== "https://synthetic.invalid" || new Headers(init?.headers).get("Authorization") !== "Bearer synthetic-fixture-token") throw new Error("Configured remote API transport required");
+  if (method === "POST" && url.pathname === "/api/chats") {
+   creates.push(JSON.parse(String(init?.body)));
+   await new Promise(resolve => setTimeout(resolve, 200));
+   const failure = (window as unknown as {__fixtureFailure?: string}).__fixtureFailure;
+   if (failure === "network") throw new TypeError("Synthetic network failure");
+   if (failure === "status") return Response.json({error:"synthetic"},{status:401});
+   if (failure === "invalid") return Response.json({id:null});
+   if (failure === "json") return new Response("not JSON");
+   return Response.json({id:"synthetic-created"});
+  }
+ } else if (url.origin !== location.origin) throw new Error("External network is disabled in this fixture");
  if (url.pathname === "/api/events") return new Response(new ReadableStream({start(controller) {controller.enqueue(new TextEncoder().encode(": synthetic fixture\n\n")); init?.signal?.addEventListener("abort", () => controller.close(),{once:true});}}),{headers:{"content-type":"text/event-stream"}});
  if (method !== "GET") throw new Error(`Mutation disabled in layout fixture: ${method} ${url.pathname}`);
  if (url.pathname === "/api/settings") return Response.json({settings});
@@ -49,6 +65,6 @@ window.fetch = async (request, init) => {
  if (url.pathname === "/api/graph") return Response.json({nodes:[],edges:[]});
  return Response.json({});
 };
-if (scenario !== "connection") setConnectionConfig({serverUrl:location.origin,token:"synthetic-fixture-token"});
-const content = scenario === "new" ? <NewSession initialConfigured/> : scenario === "setup" ? <SetupDialog open onClose={()=>{}} onDone={()=>{}}/> : <Chat chatId={record.id} title={record.title} kind={record.kind as "teach"|"practice"} initialMessages={messages} initialConfigured/>;
-createRoot(document.getElementById("root")!).render(<NavigationProvider value={{pathname:"/chat/mobile-fixture",push(){}}}><ConnectionGate required><AppProviders>{content}</AppProviders></ConnectionGate></NavigationProvider>);
+if (scenario !== "connection") setConnectionConfig({serverUrl:params.has("remote") ? "https://synthetic.invalid" : location.origin,token:"synthetic-fixture-token"});
+const content = scenario === "new" ? <NewSession initialConfigured mode={params.has("practice") ? "practice" : "teach"}/> : scenario === "setup" ? <SetupDialog open onClose={()=>{}} onDone={()=>{}}/> : <Chat chatId={record.id} title={record.title} kind={record.kind as "teach"|"practice"} initialMessages={messages} initialConfigured/>;
+createRoot(document.getElementById("root")!).render(<NavigationProvider value={{pathname:"/chat/mobile-fixture",push(target){navigations.push(target);}}}><ConnectionGate required><AppProviders>{content}</AppProviders></ConnectionGate></NavigationProvider>);

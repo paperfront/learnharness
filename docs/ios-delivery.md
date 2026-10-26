@@ -69,3 +69,23 @@ checks at 390 × 844 verified connection rejection, successful connection, sideb
 navigation, and disconnect against an isolated server. HTTP checks verified 401
 for missing/invalid tokens, 403 for unapproved origins, and 204 for native CORS
 preflight. Native device behavior remains to be verified through the iOS build.
+
+## Remembered server connection
+
+iOS saves the server URL and token as one versioned record using the system
+Keychain through @aparajita/capacitor-secure-storage 8.0.1. Access is limited to
+when the device is unlocked, with ThisDeviceOnly protection and no iCloud sync.
+Web builds never invoke the plugin's localStorage fallback.
+
+After updating from a memory-only build, connect once to save the credentials.
+Force quit and reopen to verify restoration. Disconnect deletes the record;
+reopening after disconnect must show the connection form. Network failure keeps
+the credentials; Keychain failure shows a retryable error. Test these on an iPhone
+before claiming device verification. Keychain entries can survive uninstall; use
+Disconnect to explicitly forget this server.
+
+The generated Info.plist carries forward the owner's existing declaration of no
+non-exempt encryption (`ITSAppUsesNonExemptEncryption=false`). iOS networking and
+credential storage use Apple's HTTPS/Keychain services; reassess this metadata if
+custom cryptography is added. This avoids a fresh missing-compliance prompt on
+every otherwise equivalent upload.

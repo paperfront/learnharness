@@ -62,6 +62,7 @@ jobs:
           npm run mobile:build
           if [ ! -d ios/App/App.xcodeproj ]; then npx cap add ios; fi
           npx cap sync ios
+          python3 scripts/ios-prepare.py
       - name: Verify unsigned simulator build
         run: |
           xcodebuild build -project ios/App/App.xcodeproj -scheme App \

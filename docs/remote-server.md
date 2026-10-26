@@ -19,8 +19,11 @@ is not implemented. Never put tokens in Git, URLs, build variables, logs or card
 
 Clients send `Authorization: Bearer <token>`. Authenticated `GET /api/settings`
 validates a connection. Cookie, query-string and desktop-header tokens are rejected.
-The client currently retains the token in memory only, requiring reconnection after
-a full app restart. Persistent iOS Keychain storage is not yet implemented.
+The iOS app stores the URL and token together in its app-specific Keychain, without
+iCloud synchronization, and restores them on launch. Disconnect deletes the saved
+record before clearing the active connection. Browser clients remain memory-only.
+Temporary network failures do not erase saved credentials. Keychain read/write
+failures are shown explicitly; no plaintext-storage fallback is used.
 
 ## Running
 

@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { SetupDialog } from "../components/setup-dialog.tsx";
 import type { ModelCatalogEntry } from "../src/core/contracts/models.ts";
+import { AUTH_PROVIDER_KEYS } from "../src/core/auth-keys.ts";
 
 // As in render-update-banner: mount real React handlers against an isolated
 // DOM. Fetch is wholly stubbed; no key, settings, or session writes can escape.
@@ -44,18 +45,18 @@ let host: HTMLDivElement | null = null;
 let closed = 0;
 let completed = 0;
 
-async function mount({ keyed = false, catalogFails = false } = {}) {
+async function mount({ keyed = false, catalogFails = false, providerInfo = provider, catalogModels = [model] } = {}) {
 	closed = 0;
 	completed = 0;
 	globalThis.fetch = async (input, init) => {
 		assert.equal(init?.method ?? "GET", "GET", "interaction tests must not write data");
 		const path = new URL(String(input), "http://localhost").pathname;
-		if (path === "/api/keys") return Response.json({ providers: [provider], keys: [] });
+		if (path === "/api/keys") return Response.json({ providers: [providerInfo], keys: [] });
 		assert.equal(path, "/api/models");
 		if (catalogFails) throw new Error("fixture catalog failure");
 		return Response.json({
-			providers: [{ ...provider, keyPresent: keyed }],
-			models: keyed ? [model] : [],
+			providers: [{ ...providerInfo, keyPresent: keyed }],
+			models: keyed ? catalogModels : [],
 			slots: { strong: null, cheap: null, vision: null },
 		});
 	};
@@ -105,6 +106,30 @@ afterEach(async () => {
 });
 
 describe("setup polish interactions", () => {
+	it("offers Ollama Cloud from the server roster without a client provider allowlist", async () => {
+		const ollama = AUTH_PROVIDER_KEYS.find((p) => p.id === "ollama-cloud")!;
+		await mount({ providerInfo: ollama });
+		await click(element('[data-testid="setup-key-provider"]'));
+		assert.ok(element('[data-testid="provider-option-ollama-cloud"]').textContent?.includes("Ollama Cloud"));
+		await click(element('[data-testid="provider-option-ollama-cloud"]'));
+		assert.equal(element('[data-testid="setup-key-input"]').getAttribute("aria-label"), "Ollama Cloud key");
+	});
+
+	it("offers an Ollama vision model in all three slots with its server-supplied thinking levels", async () => {
+		const ollama = AUTH_PROVIDER_KEYS.find((p) => p.id === "ollama-cloud")!;
+		const cloudModel: ModelCatalogEntry = { ...model, provider: ollama.id, id: "glm-5.3-flash", name: "Ollama Cloud: GLM 5.3 Flash", reasoning: true, input: ["text", "image"], supportedLevels: ["low", "high", "max"] };
+		await mount({ keyed: true, providerInfo: ollama, catalogModels: [cloudModel] });
+		for (const slot of ["strong", "cheap", "vision"]) {
+			await click(element(`[data-testid="setup-trigger-${slot}"]`));
+			await click(element('[data-testid="model-option-glm-5_3-flash"]'));
+			await click(element(`[data-testid="setup-thinking-${slot}"]`));
+			assert.ok(document.querySelector('[data-testid="thinking-option-low"]'));
+			assert.ok(document.querySelector('[data-testid="thinking-option-max"]'));
+			assert.equal(document.querySelector('[data-testid="thinking-option-off"]'), null);
+			await click(element('[data-testid="setup-dialog"] h2'));
+		}
+	});
+
 	it("provider dropdown closes on a click elsewhere inside the dialog without closing setup", async () => {
 		await mount();
 		await click(element('[data-testid="setup-key-provider"]'));

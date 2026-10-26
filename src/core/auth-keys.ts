@@ -72,7 +72,8 @@ export interface AuthProviderInfo {
  * drift from what pi actually reads: tests/auth-provider-keys.test.ts
  * re-derives the truth from pi-ai (builtinProviders + findEnvKeys via a
  * truthy-for-every-var proxy env) and asserts EXACT equality with this
- * table — a pi-ai upgrade that adds/renames a provider key fails the gate
+ * table (plus the explicitly tested app-owned Ollama Cloud provider) —
+ * a pi-ai upgrade that adds/renames a provider key fails the gate
  * loudly instead of drifting silently.
  *
  * EXCLUDED by owner spec — providers whose auth is not a plain key this
@@ -102,6 +103,7 @@ export const AUTH_PROVIDER_KEYS: readonly AuthProviderInfo[] = [
 	{ id: "moonshotai", envVar: "MOONSHOT_API_KEY", label: "Moonshot AI" },
 	{ id: "moonshotai-cn", envVar: "MOONSHOT_API_KEY", label: "Moonshot AI CN" },
 	{ id: "nvidia", envVar: "NVIDIA_API_KEY", label: "NVIDIA" },
+	{ id: "ollama-cloud", envVar: "OLLAMA_API_KEY", label: "Ollama Cloud" },
 	{ id: "openai", envVar: "OPENAI_API_KEY", label: "OpenAI" },
 	{ id: "opencode", envVar: "OPENCODE_API_KEY", label: "OpenCode Zen" },
 	{ id: "opencode-go", envVar: "OPENCODE_API_KEY", label: "OpenCode Go" },

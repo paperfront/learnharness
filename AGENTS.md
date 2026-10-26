@@ -9,6 +9,11 @@ requirements. The current owner's instructions take precedence over inherited
 workflow guidance below; avoid repeatedly seeking approval for work already
 authorized by his request.
 
+Development delegation preference: use GPT-6.1 Sol agents for most development
+work. The coordinating agent owns detailed specifications, scope and acceptance
+criteria, review, and delivery coordination. Give implementation agents clear
+security, compatibility, validation, and deployment boundaries.
+
 Canonical task board: https://ubuntu-1.tail1441ca.ts.net:8443/index.php/apps/deck/board/4
 Columns: Backlog, Ready, In progress, Review, Blocked, Done.
 Track requested features and status there, with acceptance criteria, dependencies,

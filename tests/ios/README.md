@@ -47,7 +47,8 @@ separate checkout/job, the production entry and `mobile-dist`; fixture assets
 are selected only with `LH_IOS_SMOKE=1`.
 
 XCUITest exercises WKWebView accessibility and actual simulator software keyboard
-appearance, entering custom Other/free recall/new-session text, reaching Submit
+appearance, entering custom Other (single and multiple choice), free recall and
+new-session text, reaching Submit
 or Send while editing, and observing synthetic server acceptance/continuation.
 The custom-answer case also requires the software keyboard to disappear after
 submission. Assertions fail if the native accessibility tree cannot expose the

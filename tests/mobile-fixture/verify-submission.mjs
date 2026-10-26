@@ -44,6 +44,33 @@ try {
   console.log(`Passed custom touch submit: ${failure??'success'}`);
   await page.close();
  }
+ for (const single of [false,true]) {
+  const page=await newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  await page.goto(`${fixtureURL}/?case=ask&submission&remote=true${single?'&single=true':''}`);
+  const custom=page.getByRole('textbox',{name:'Type your own answer…',exact:true});
+  await custom.waitFor();
+  assert.equal(await custom.evaluate(el=>!!el.parentElement.closest('[role="checkbox"], [role="radio"]')),false,'editable field must not be flattened inside a selection role');
+  assert.match(await page.locator('[data-testid="other-option"]').ariaSnapshot(),/textbox "Type your own answer…"/);
+  const option=page.locator('[data-testid="question-dock"] button').filter({hasText:'Choice 1:'}).first();
+  await option.tap();
+  await custom.fill('Theory and practice');
+  assert.equal(await option.getAttribute('aria-checked'),single?'false':'true','custom typing respects selection mode');
+  const selector=page.getByRole(single?'radio':'checkbox',{name:'Select custom answer',exact:true});
+  assert.equal(await selector.getAttribute('aria-checked'),'true');
+  await custom.press('Escape');
+  await page.keyboard.press('Space');
+  assert.equal(await selector.getAttribute('aria-checked'),'false','keyboard can deselect custom row');
+  assert.equal(await custom.inputValue(),'Theory and practice');
+  await page.keyboard.press('Space');
+  assert.equal(await selector.getAttribute('aria-checked'),'true');
+  await page.getByRole('button',{name:'Submit answer',exact:true}).tap();
+  await page.getByText('Synthetic assistant continuation received your answer.',{exact:true}).waitFor();
+  const [request]=await page.evaluate(()=>window.__fixtureSubmissions);
+  assert.equal(request.input.answer.other,'Theory and practice');
+  assert.equal(request.input.answer.answers.length,single?0:1);
+  console.log(`Passed accessible custom ${single?'single':'multi'} select`);
+  await page.close();
+ }
  for (const scenario of ['ask','text','asktext','mobile-text','mobile-asktext']) {
   const mobile=scenario.startsWith('mobile-');
   const kind=scenario.replace('mobile-','');

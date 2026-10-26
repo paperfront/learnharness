@@ -663,10 +663,10 @@ function QuestionDockForm({
 							</button>
 						)}
 
+						{/* Keep the editable input beside the selection control: iOS
+						    accessibility flattens descendants of checkbox/radio roles. */}
 						{kind === "ask" && (
 							<div
-								role={qd.mode === "multi-select" ? "checkbox" : "radio"}
-								aria-checked={sel.otherSelected}
 								data-testid="other-option"
 								data-kbdrow={optionCount}
 								onClick={selectOther}
@@ -676,7 +676,14 @@ function QuestionDockForm({
 									kbdIdx === optionCount && !sel.otherSelected && "ring-1 ring-border bg-accent/40",
 								)}
 							>
-								<span
+								<button
+									type="button"
+									role={qd.mode === "multi-select" ? "checkbox" : "radio"}
+									aria-checked={sel.otherSelected}
+									aria-label="Select custom answer"
+									data-testid="other-selector"
+									tabIndex={-1}
+									onClick={(e) => { e.stopPropagation(); selectOther(); }}
 									className={cn(
 										"mt-0.5 flex size-4 shrink-0 items-center justify-center border",
 										qd.mode === "multi-select" ? "rounded-sm" : "rounded-full",
@@ -690,9 +697,10 @@ function QuestionDockForm({
 											{qd.mode === "multi-select" ? "✓" : ""}
 										</span>
 									)}
-								</span>
+								</button>
 								<input
 									ref={otherInputRef}
+									aria-label="Type your own answer…"
 									value={other}
 									onChange={(e) => {
 										setOther(e.target.value);

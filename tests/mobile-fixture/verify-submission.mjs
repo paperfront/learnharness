@@ -8,6 +8,11 @@ const errors=[];
 const artifacts=process.env.LH_MOBILE_ARTIFACTS??"/tmp/lh-mobile-validation";
 await mkdir(artifacts,{recursive:true});
 async function newPage(options){const page=await browser.newPage(options);pages.push(page);page.on("pageerror",e=>errors.push(e.message));return page;}
+async function releaseCanonicalReadback(page) {
+ await page.waitForFunction(()=>window.__fixtureReadbacks>0);
+ assert.equal(await page.getByText('Synthetic assistant continuation received your answer.',{exact:true}).count(),0,'server mutation cannot alter live client state before canonical GET');
+ await page.evaluate(()=>{window.__fixtureHoldReadback=false;});
+}
 try {
  for (const failure of [undefined,'status','network','lost-ack']) {
   const page=await newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
@@ -15,6 +20,7 @@ try {
   const custom=page.getByPlaceholder('Type your own answer…');
   const draft='I want to understand both theory and practical applications';
   await custom.tap(); await custom.fill(draft);
+  await page.evaluate(()=>{window.__fixtureHoldReadback=true;});
   // Thinking intentionally remains empty, matching the reported flow.
   await page.evaluate(f=>{window.__fixtureFailure=f;},failure);
   await page.getByRole('button',{name:'Submit answer',exact:true}).tap();
@@ -26,6 +32,7 @@ try {
    await page.getByRole('button',{name:'Submit answer',exact:true}).tap();
    await page.waitForFunction(()=>window.__fixtureSubmissions.length===2);
   }
+  await releaseCanonicalReadback(page);
   await page.getByText('Synthetic assistant continuation received your answer.',{exact:true}).waitFor();
   const submissions=await page.evaluate(()=>window.__fixtureSubmissions);
   for(const request of submissions) {
@@ -44,8 +51,10 @@ try {
   await page.goto(`${fixtureURL}/?case=${kind}&submission&remote=true${mobile?'':'&desktop=true'}`);
   const field=page.getByPlaceholder(kind==='ask'?'Type your own answer…':'Type your answer…');
   await field.fill('Synthetic pointer free text answer');
+  await page.evaluate(()=>{window.__fixtureHoldReadback=true;});
   if(mobile) await page.getByRole('button',{name:'Submit answer',exact:true}).tap();
   else await page.getByRole('button',{name:'Submit answer',exact:true}).click();
+  await releaseCanonicalReadback(page);
   await page.getByText('Synthetic assistant continuation received your answer.',{exact:true}).waitFor();
   const [request]=await page.evaluate(()=>window.__fixtureSubmissions);
   assert.equal(request.input.answer[kind==='ask'?'other':'text'],'Synthetic pointer free text answer');

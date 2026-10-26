@@ -30,7 +30,7 @@ const messages = [
 ] as unknown as LhMessage[];
 const model = {provider:"fixture",id:"synthetic-model"};
 const settings = { models: Object.fromEntries(["strong","cheap","vision"].map(slot => [slot,{model,thinkingLevel:"off"}])) };
-const record = {id:"mobile-fixture",title:"Phone layout check",kind:scenario === "practice" ? "practice":"teach",messages,settings:{model,thinkingLevel:"off"}};
+const record = {id:"mobile-fixture",title:"Phone layout check",kind:scenario === "practice" ? "practice":"teach",messages:structuredClone(messages),settings:{model,thinkingLevel:"off"}};
 const requests: string[] = [];
 const navigations: string[] = [];
 const creates: unknown[] = [];
@@ -51,8 +51,8 @@ window.fetch = async (request, init) => {
   const failure = (window as unknown as {__fixtureFailure?: string}).__fixtureFailure;
   if (failure === "network") throw new TypeError("Synthetic answer network failure");
   if (failure === "status") return new Response("Synthetic answer refused", {status:500});
-  messages.push({id:"accepted-answer",role:"toolResult",toolCallId:event.input.toolCallId,toolName:tool,content:[{type:"text",text:JSON.stringify(event.input.answer)}],details:event.input.answer,isError:false,timestamp:12} as unknown as LhMessage);
-  messages.push({id:"continuation",role:"assistant",content:[{type:"text",text:"Synthetic assistant continuation received your answer."}],timestamp:13} as LhMessage);
+  record.messages.push({id:"accepted-answer",role:"toolResult",toolCallId:event.input.toolCallId,toolName:tool,content:[{type:"text",text:JSON.stringify(event.input.answer)}],details:event.input.answer,isError:false,timestamp:12} as unknown as LhMessage);
+  record.messages.push({id:"continuation",role:"assistant",content:[{type:"text",text:"Synthetic assistant continuation received your answer."}],timestamp:13} as LhMessage);
   if (failure === "lost-ack") throw new TypeError("Synthetic accepted answer lost acknowledgement");
   return Response.json({ok:true});
  }
@@ -75,7 +75,14 @@ window.fetch = async (request, init) => {
  if (url.pathname === "/api/settings") return Response.json({settings});
  if (url.pathname === "/api/models") return Response.json({models:[{...model,name:"Synthetic model",input:["text","image"],reasoning:false,supportedLevels:["off"],maxTokens:4096,contextWindow:128000,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}],providers:[{id:"fixture",label:"Fixture",keyPresent:scenario!=="setup"}],slots:settings.models,rolePins:{},defaults:null});
  if (url.pathname === "/api/keys") return Response.json({statuses:[],providers:[{id:"fixture",label:"Fixture provider",envVar:"FIXTURE_API_KEY"}]});
- if (url.pathname === "/api/chats/mobile-fixture") return Response.json(record);
+ if (url.pathname === "/api/chats/mobile-fixture") {
+  if (submissionFixture && record.messages.some(message => message.id === "continuation")) {
+   const state = window as unknown as {__fixtureHoldReadback?: boolean; __fixtureReadbacks?: number};
+   state.__fixtureReadbacks = (state.__fixtureReadbacks ?? 0) + 1;
+   while (state.__fixtureHoldReadback) await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  return Response.json(record);
+ }
  if (url.pathname === "/api/chats") return Response.json({chats:[{id:record.id,title:record.title,kind:record.kind,updatedAt:new Date().toISOString()}]});
  if (url.pathname === "/api/jobs") return Response.json({jobs:[]});
  if (url.pathname === "/api/activity") return Response.json({turns:[],jobs:[],compactions:[]});

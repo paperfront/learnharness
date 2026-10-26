@@ -14,6 +14,10 @@ test.add_file_references([group.new_file('MobileSmoke.swift')])
 test.build_configurations.each do |config|
   config.build_settings.merge!({
     'TEST_TARGET_NAME' => 'App',
+    # xcodeproj does not supply PRODUCT_NAME for a generated UI-test target.
+    # Without it Xcode emits '-Runner.app/PlugIns/.xctest' and cannot link.
+    'PRODUCT_NAME' => 'MobileSmoke',
+    'PRODUCT_MODULE_NAME' => 'MobileSmoke',
     'PRODUCT_BUNDLE_IDENTIFIER' => 'com.paperfront.learnharness.smoke.uitests',
     'GENERATE_INFOPLIST_FILE' => 'YES',
     'SWIFT_VERSION' => '5.0',

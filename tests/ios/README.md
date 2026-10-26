@@ -3,6 +3,13 @@
 `ios-testflight.yml` requires both the browser behavior job and `native-smoke`
 before the production simulator build or an authorized TestFlight upload.
 
+CI's separate `browser-smoke` job runs in the official Playwright 1.58.2 Noble
+image, pinned by manifest digest and matched to the npm dependency. The image
+already contains both browser engines and their OS libraries; CI does not fetch
+browser archives from the Playwright CDN. `setup-node` selects Node 26 inside the
+container. Unit/type/lint/build checks retain their ordinary Ubuntu job. Both
+browser engines remain required release gates, each with a five-minute timeout.
+
 The browser suite uses pinned Playwright Chromium **and WebKit**, real shared
 React components, synthetic API responses, mobile touch contexts, payload
 assertions, failure/retry checks and visible assistant continuation. Run with
@@ -55,4 +62,6 @@ A passing build alone is never recorded as a runtime UI pass. The native tests
 must run successfully on CI before a release is considered validated.
 
 References: [Apple XCUIAutomation](https://developer.apple.com/documentation/xcuiautomation),
-[Xcodeproj](https://github.com/CocoaPods/Xcodeproj).
+[Xcodeproj](https://github.com/CocoaPods/Xcodeproj),
+[Playwright Docker](https://playwright.dev/docs/docker),
+[Playwright CI](https://playwright.dev/docs/ci).

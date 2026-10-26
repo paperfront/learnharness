@@ -39,12 +39,42 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run lint
-      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run mobile:build
+
+  browser-smoke:
+    if: ${{ !inputs.inspect_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Match package.json's exact Playwright version. Browser binaries and OS
+    # libraries are preinstalled; avoid per-run browser-CDN/apt downloads.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble@sha256:6446946a1d9fd62d9ae501312a2d76a43ee688542b21622056a372959b65d63d
+      options: --init --ipc=host
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - name: Verify bundled browser executables
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium, webkit} from 'playwright';
+          import {existsSync} from 'node:fs';
+          for (const browser of [chromium, webkit]) {
+            const executable=browser.executablePath();
+            if (!existsSync(executable)) throw new Error(`Missing bundled ${browser.name()}: ${executable}`);
+            console.log(`${browser.name()}: ${executable}`);
+          }
+          JS
       - name: Chromium mobile behavioral regressions
+        timeout-minutes: 5
         run: npm run test:mobile
         env:
           LH_MOBILE_ARTIFACTS: ${{ runner.temp }}/mobile-chromium
       - name: WebKit mobile behavioral regressions
+        timeout-minutes: 5
         run: npm run test:mobile
         env:
           LH_BROWSER: webkit
@@ -55,7 +85,6 @@ jobs:
         with:
           name: mobile-browser-evidence
           path: ${{ runner.temp }}/mobile-*
-      - run: npm run mobile:build
 
   native-smoke:
     if: ${{ !inputs.inspect_only }}
@@ -88,7 +117,7 @@ jobs:
           if-no-files-found: warn
 
   ios:
-    needs: [validate, native-smoke]
+    needs: [validate, browser-smoke, native-smoke]
     runs-on: macos-26
     timeout-minutes: 60
     env:

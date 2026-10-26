@@ -92,6 +92,8 @@ export interface QuestionDockProps {
 	 *  and say so in the hint row. The server registry is the real gate;
 	 *  this is the affordance. */
 	compactionRunning?: boolean;
+	submitting?: boolean;
+	submitError?: string;
 }
 
 export function QuestionDock({
@@ -107,6 +109,8 @@ export function QuestionDock({
 	phase = "probe",
 	dictationClaim = true,
 	compactionRunning = false,
+	submitting = false,
+	submitError,
 }: QuestionDockProps) {
 	// The probe-phase names (owner, 2026-10-09) canonicalize onto their
 	// teach twins for every dock concern — parse dispatch, labels, kinds:
@@ -161,6 +165,8 @@ export function QuestionDock({
 					onEscape={onEscape}
 					dictationClaim={dictationClaim}
 					compactionRunning={compactionRunning}
+					submitting={submitting}
+					submitError={submitError}
 					onCollapse={onCollapse}
 				/>
 			</div>
@@ -257,6 +263,8 @@ function QuestionDockForm({
 	onEscape,
 	dictationClaim = true,
 	compactionRunning = false,
+	submitting = false,
+	submitError,
 	onCollapse,
 }: Omit<QuestionDockProps, "expanded" | "onExpand" | "reveal">) {
 	const kind = toolQuestionKind(toolName);
@@ -370,7 +378,7 @@ function QuestionDockForm({
 			: sel.dontKnow || (sel.otherSelected && other.trim().length > 0) || sel.selected.size > 0;
 
 	const submit = () => {
-		if (!canSubmit || compactionRunning) return;
+		if (!canSubmit || compactionRunning || submitting) return;
 		/* FINISH DICTATION FIRST (owner, 2026-10-01): Enter may arrive while
 		 * a run is live with reasoning still in Deepgram's hands. Stop the
 		 * run, let the last finals land in the target field, and only then
@@ -902,16 +910,17 @@ function QuestionDockForm({
 							)}
 						/>
 					)}
+					{submitError && <p role="alert" className="max-h-24 overflow-y-auto break-words px-2.5 py-2 text-sm text-destructive">Could not send your answer: {submitError}</p>}
 					<div className="flex items-center justify-between gap-2 p-1">
 						<span aria-hidden className={cn("pl-1.5 text-xs text-muted-foreground", !compactionRunning && "lh-keyboard-hint")}>
 								{compactionRunning ? "compacting session…" : "↵ submits · ⇧↵ newline"}
 						</span>
 						<Button
 							type="submit"
-							disabled={!canSubmit || compactionRunning}
+							disabled={!canSubmit || compactionRunning || submitting}
 							className="ml-auto h-9 rounded-[6px] px-3.5 text-sm font-medium"
 						>
-							Submit answer
+							{submitting ? "Submitting…" : "Submit answer"}
 						</Button>
 					</div>
 				</div>

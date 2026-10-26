@@ -39,10 +39,56 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run lint
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Chromium mobile behavioral regressions
+        run: npm run test:mobile
+        env:
+          LH_MOBILE_ARTIFACTS: ${{ runner.temp }}/mobile-chromium
+      - name: WebKit mobile behavioral regressions
+        run: npm run test:mobile
+        env:
+          LH_BROWSER: webkit
+          LH_MOBILE_ARTIFACTS: ${{ runner.temp }}/mobile-webkit
+      - name: Save browser regression evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-browser-evidence
+          path: ${{ runner.temp }}/mobile-*
       - run: npm run mobile:build
 
+  native-smoke:
+    if: ${{ !inputs.inspect_only }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+      - run: npm ci
+      - run: gem install xcodeproj -v 1.27.0 --no-document
+      - name: Run bundled synthetic WKWebView UI tests on iPhone simulator
+        run: bash tests/ios/run.sh
+      - name: Save native test results and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-native-smoke
+          path: |
+            ${{ runner.temp }}/lh-ios-smoke/MobileSmoke.xcresult
+            ${{ runner.temp }}/lh-ios-smoke/devices.json
+          if-no-files-found: warn
+
   ios:
-    needs: validate
+    needs: [validate, native-smoke]
     runs-on: macos-26
     timeout-minutes: 60
     env:

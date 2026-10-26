@@ -1600,6 +1600,8 @@ export function Chat({
 				    fold) and NEVER overlaps the composer. */}
 				<DockOverlay
 					pending={pending}
+					submitting={busy}
+					submitError={error?.message}
 					practice={activeProblem}
 					compactionRunning={compacting}
 					onSubmitThinking={submitThinking}
@@ -1668,7 +1670,6 @@ export function Chat({
 						// reading-thinking draft rides along (owner 2026-10-03) — the
 						// check answer is its only carrier.
 						const reading = readingThinkingRef.current.trim() || undefined;
-						clearReadingThinking();
 						submitAnswer(pending.tool, pending.toolCallId, reading ? { ...output, readingThinking: reading } : output);
 					}}
 				/>
@@ -1845,8 +1846,12 @@ function DockOverlay({
 	dictationCancel,
 	setupCta,
 	queuedSteers,
+	submitting,
+	submitError,
 }: {
 	pending: ReturnType<typeof findPendingToolCall>;
+	submitting: boolean;
+	submitError?: string;
 	/** Compaction running for this chat (round 14) — the docks' submit
 	 *  affordance gate (the server's registry is the real one). */
 	compactionRunning: boolean;
@@ -2357,6 +2362,8 @@ function DockOverlay({
 								<QuestionDock
 									toolName={pending.tool as "quiz" | "probe" | "ask_user_question" | "explain" | "recall"}
 									toolCallId={pending.toolCallId}
+									submitting={submitting}
+									submitError={submitError}
 									input={pending.input as never}
 									expanded={expanded}
 									reveal={revealPending}

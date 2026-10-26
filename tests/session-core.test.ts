@@ -20,6 +20,7 @@
  *   native replacement for lastAssistantMessageIsCompleteWithToolCalls.
  */
 import assert from "node:assert/strict";
+import type { QuestionAnswerData } from "../src/core/question-core.ts";
 import { afterEach, describe, it } from "node:test";
 import { absorbed, pendingCallTool, SessionModel } from "../components/session-core.ts";
 import type { ChatInput } from "../src/core/input-events.ts";
@@ -323,7 +324,7 @@ describe("send (one input event, verbatim consumption)", () => {
 		);
 	});
 
-	it("the optimistic answer result attaches to the pending quiz part at once", async () => {
+	it("the answer result attaches only after the server accepts the POST", async () => {
 		const quizCall = {
 			id: "call-1",
 			role: "assistant",
@@ -347,14 +348,16 @@ describe("send (one input event, verbatim consumption)", () => {
 		}) as typeof globalThis.fetch;
 		const m = model({ initialMessages: [newUserMessage("hi"), quizCall] });
 		const pending = m.submitAnswer("quiz", "call-1", { correct: true } as never);
-		// The dock's AnsweredCard state — before any server round-trip:
+		// The pending dock stays mounted before the acknowledgement:
 		const state = m.getState();
 		const quizPart = state.messages
 			.flatMap((v) => v.parts)
 			.find((p) => p.type === "tool-quiz")!;
-		assert.equal(quizPart.state, "output-available");
-		assert.deepEqual(quizPart.output, { correct: true });
+		assert.equal(quizPart.state, "input-available");
 		await pending;
+		const acceptedPart = m.getState().messages.flatMap(v => v.parts).find(p => p.type === "tool-quiz")!;
+		assert.equal(acceptedPart.state, "output-available");
+		assert.deepEqual(acceptedPart.output, { correct: true });
 		assert.deepEqual(JSON.parse(postBody), {
 			chatId: "chat_x",
 			input: { type: "answer", toolCallId: "call-1", answer: { correct: true } },
@@ -1313,4 +1316,50 @@ describe("absorbed — the custom role (the doubled thinking card)", () => {
 		assert.equal(customs.length, 1, "the server copy replaced the optimistic one — no doubling");
 		assert.equal((customs[0] as { id?: string }).id, "srv_1");
 	});
+});
+
+describe("answer submission recovery", () => {
+	it("keeps a pending answer mounted through a rejected POST and permits retry", async () => {
+		const question = { id: "pending", role: "assistant", content: [{type:"toolCall", id:"ask-1", name:"ask_user_question", arguments:{question:"Goals?",options:[{label:"Theory"}]}}], timestamp:1 } as unknown as LhMessage;
+		let posts = 0;
+		let resolvePost!: (response: Response) => void;
+		const m = model({initialMessages:[question], fetch:async (url) => {
+			if(String(url)==="/api/chat") { posts++; return new Promise<Response>(resolve => {resolvePost=resolve;}); }
+			return Response.json({messages:[question]});
+		}});
+		const answer = {kind:"ask",questionText:"Goals?",options:[],answers:[],dontKnow:false,other:"Theory and practice",answeredAt:new Date().toISOString()} as QuestionAnswerData;
+		const first = m.submitAnswer("ask_user_question","ask-1",answer);
+		assert.equal(m.getState().nativeMessages.length,1,"pending dock must stay mounted before acceptance");
+		resolvePost(new Response("Synthetic refusal",{status:500}));
+		await first;
+		assert.equal(m.getState().nativeMessages.length,1,"failed answer must not hide the pending call");
+		assert.equal(m.getState().error?.message,"Synthetic refusal");
+		assert.equal(m.readyRef,true,"error state permits a deliberate retry");
+		const second=m.submitAnswer("ask_user_question","ask-1",answer);
+		assert.equal(posts,2,"retry sends a second request");
+		resolvePost(new Response("Synthetic refusal",{status:500}));
+		await second;
+	});
+});
+
+describe("accepted answer readback recovery", () => {
+	for (const failure of ["status", "malformed"] as const) {
+		it(`retains the acknowledged answer when record readback is ${failure}`, async () => {
+			const question = {id:"pending",role:"assistant",content:[{type:"toolCall",id:"ask-1",name:"ask_user_question",arguments:{question:"Goals?"}}],timestamp:1} as unknown as LhMessage;
+			let streams=0;
+			const m=model({initialMessages:[question],fetch:async url=>{
+				if(String(url)==="/api/chat") return Response.json({ok:true});
+				if(String(url).endsWith("/stream")) {streams++;return sseResponse({type:"turn-settled"},"[DONE]");}
+				return failure==="status"?new Response("unavailable",{status:503}):Response.json({});
+			}});
+			await m.submitAnswer("ask_user_question","ask-1",{kind:"ask",other:"Theory and practice"} as QuestionAnswerData);
+			assert.equal(m.getState().status,"error");
+			assert.equal(streams,0,"never replay onto a stale record");
+			const accepted=m.getState().nativeMessages;
+			assert.equal(accepted.length,2,"acknowledged result remains visible");
+			assert.equal(accepted[1]!.role,"toolResult");
+			m.setMessages(accepted.map((message,i)=>({...message,id:`canonical-${i}`})));
+			assert.equal(m.getState().nativeMessages.length,2,"canonical recovery must absorb the local result exactly once");
+		});
+	}
 });

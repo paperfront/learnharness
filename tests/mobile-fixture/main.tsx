@@ -16,12 +16,13 @@ import "@/app/globals.css";
 
 const params = new URLSearchParams(location.search);
 const scenario = params.get("case") ?? "quiz";
+const submissionFixture = params.has("submission");
 if (params.get("desktop") !== "true") { await import("@/mobile/mobile.css"); installMobileViewport(); }
 else document.documentElement.style.setProperty("--lh-viewport-height", "100dvh");
 const prose = "Each choice has enough content to wrap naturally on a phone. Compare the evidence carefully before choosing an answer.";
 const quiz = { question: "Which explanation best describes how scrolling should behave on a phone?", details: "Read the question and compare every option. This fixture contains no private learning data.", options: Array.from({length: 7}, (_, i) => ({ label: `Choice ${i + 1}: ${prose}`, value: `choice-${i}` })), correctAnswer: "choice-0", explanation: "The heading and every control should remain reachable." };
-const tool = scenario === "practice" ? "problem" : scenario === "text" ? "recall" : scenario === "ask" ? "ask_user_question" : "probe";
-const input = scenario === "practice" ? {statement: `Explain how a viewport changes when a keyboard opens.\n\n${Array(8).fill(prose).join("\n\n")}`} : scenario === "text" ? {question: "Describe how you would keep a focused answer and its submit button reachable.", details: Array(4).fill(prose).join("\n\n"), correctAnswer: "Resize the visible surface once."} : scenario === "ask" ? {...quiz, multiSelect:true} : quiz;
+const tool = scenario === "practice" ? "problem" : scenario === "text" ? "recall" : (scenario === "ask" || scenario === "asktext") ? "ask_user_question" : "probe";
+const input = scenario === "practice" ? {statement: `Explain how a viewport changes when a keyboard opens.\n\n${Array(8).fill(prose).join("\n\n")}`} : (scenario === "text" || scenario === "asktext") ? {question: "Describe how you would keep a focused answer and its submit button reachable.", details: Array(4).fill(prose).join("\n\n"), correctAnswer: "Resize the visible surface once."} : scenario === "ask" ? {...quiz, multiSelect:true} : quiz;
 const messages = [
  ...Array.from({length: 6}, (_, i) => ({ id:`history-${i}`, role:"assistant", content:[{type:"text",text:`### Earlier explanation ${i + 1}\n\n${prose}\n\n${prose}`}], timestamp:i })),
  { id:"question-message", role:"assistant", content:[{type:"toolCall", id:"fixture-question", name:tool, arguments:input}], timestamp:10 },
@@ -33,6 +34,8 @@ const record = {id:"mobile-fixture",title:"Phone layout check",kind:scenario ===
 const requests: string[] = [];
 const navigations: string[] = [];
 const creates: unknown[] = [];
+const submissions: unknown[] = [];
+Object.assign(window, {__fixtureSubmissions: submissions});
 Object.assign(window, {__fixtureCreates: creates});
 Object.assign(window, {__fixtureNavigations: navigations});
 Object.assign(window, {__fixtureRequests: requests});
@@ -40,6 +43,20 @@ window.fetch = async (request, init) => {
  const url = new URL(typeof request === "string" ? request : request instanceof URL ? request : request.url, location.origin);
  const method = init?.method ?? "GET";
  requests.push(`${method} ${url.pathname}`);
+ if (params.has("remote") && (url.origin !== "https://synthetic.invalid" || new Headers(init?.headers).get("Authorization") !== "Bearer synthetic-fixture-token")) throw new Error("Configured remote API transport required");
+ if (submissionFixture && url.pathname === "/api/chat" && method === "POST") {
+  const event = JSON.parse(String(init?.body));
+  submissions.push(event);
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const failure = (window as unknown as {__fixtureFailure?: string}).__fixtureFailure;
+  if (failure === "network") throw new TypeError("Synthetic answer network failure");
+  if (failure === "status") return new Response("Synthetic answer refused", {status:500});
+  messages.push({id:"accepted-answer",role:"toolResult",toolCallId:event.input.toolCallId,toolName:tool,content:[{type:"text",text:JSON.stringify(event.input.answer)}],details:event.input.answer,isError:false,timestamp:12} as unknown as LhMessage);
+  messages.push({id:"continuation",role:"assistant",content:[{type:"text",text:"Synthetic assistant continuation received your answer."}],timestamp:13} as LhMessage);
+  if (failure === "lost-ack") throw new TypeError("Synthetic accepted answer lost acknowledgement");
+  return Response.json({ok:true});
+ }
+ if (submissionFixture && url.pathname.endsWith("/stream")) return new Response('data: {"type":"turn-settled"}\n\ndata: [DONE]\n\n', {headers:{"content-type":"text/event-stream"}});
  if (params.has("remote")) {
   if (url.origin !== "https://synthetic.invalid" || new Headers(init?.headers).get("Authorization") !== "Bearer synthetic-fixture-token") throw new Error("Configured remote API transport required");
   if (method === "POST" && url.pathname === "/api/chats") {
@@ -67,4 +84,4 @@ window.fetch = async (request, init) => {
 };
 if (scenario !== "connection") setConnectionConfig({serverUrl:params.has("remote") ? "https://synthetic.invalid" : location.origin,token:"synthetic-fixture-token"});
 const content = scenario === "new" ? <NewSession initialConfigured mode={params.has("practice") ? "practice" : "teach"}/> : scenario === "setup" ? <SetupDialog open onClose={()=>{}} onDone={()=>{}}/> : <Chat chatId={record.id} title={record.title} kind={record.kind as "teach"|"practice"} initialMessages={messages} initialConfigured/>;
-createRoot(document.getElementById("root")!).render(<NavigationProvider value={{pathname:"/chat/mobile-fixture",push(target){navigations.push(target);}}}><ConnectionGate required><AppProviders>{content}</AppProviders></ConnectionGate></NavigationProvider>);
+createRoot(document.getElementById("root")!).render(<NavigationProvider value={{pathname:"/chat/mobile-fixture",push(target){navigations.push(target); const status=document.createElement("p"); status.setAttribute("role","status"); status.textContent="Synthetic session created"; status.style.cssText="position:fixed;top:90px;z-index:1000;background:black;color:white;padding:8px";document.body.append(status);}}}><ConnectionGate required><AppProviders>{content}</AppProviders></ConnectionGate></NavigationProvider>);

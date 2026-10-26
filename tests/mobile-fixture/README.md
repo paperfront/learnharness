@@ -21,12 +21,20 @@ With that preview running, execute the behavioral browser checks:
 node tests/mobile-fixture/verify.mjs
 ```
 
-The runner uses the Playwright runtime already installed with agent-browser and
-a local Chrome installation. It creates fresh touch-enabled phone contexts and
-separate mouse desktop contexts. If that runtime is installed elsewhere, set
-`LH_PLAYWRIGHT_MODULE` to its absolute module entry path. No dependency changes
-are required. Set `LH_MOBILE_ARTIFACTS` to change the output folder (default:
-`/tmp/lh-mobile-validation`). The folder contains screenshots and `evidence.json`.
+The repeatable CI command starts and stops its own server:
+
+```sh
+npx playwright install chromium webkit
+npm run test:mobile
+LH_BROWSER=webkit npm run test:mobile
+```
+
+Playwright is a pinned project dependency. Set `LH_BROWSER_CHANNEL=chrome` to use
+an installed Chrome locally; CI uses the installed Playwright engines. Set
+`LH_FIXTURE_PORT` if 4317 is occupied, and `LH_MOBILE_ARTIFACTS` to change the
+screenshot/evidence folder (default `/tmp/lh-mobile-validation`). The suite also
+runs new-session and answer-submission transport checks. Native keyboard/runtime
+coverage is documented in [the iOS runtime gate](../ios/README.md).
 
 Checks cover 390×844 and 375×667, multiple choice and open answers, practice,
 selection/custom-answer/confidence/draft preservation, reading the transcript,

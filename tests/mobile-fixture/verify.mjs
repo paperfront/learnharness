@@ -1,14 +1,8 @@
-// Run with the local fixture preview already serving. Uses the browser runtime
-// bundled with agent-browser; does not add a project dependency.
+// Run through npm run test:mobile for a managed synthetic preview server.
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
-const require=createRequire(import.meta.url);
-const modulePath=process.env.LH_PLAYWRIGHT_MODULE ?? require.resolve("playwright-core",{paths:[process.cwd(),"/opt/homebrew/lib/node_modules/agent-browser"]});
-const runtime=await import(pathToFileURL(modulePath).href);
-const {chromium}=runtime.default ?? runtime;
-const browser=await chromium.launch({channel:"chrome",headless:true});
+import {launchBrowser, fixtureURL} from "./runtime.mjs";
+const browser=await launchBrowser();
 const output=process.env.LH_MOBILE_ARTIFACTS ?? "/tmp/lh-mobile-validation";
 await mkdir(output,{recursive:true});
 const evidence=[];
@@ -18,7 +12,7 @@ async function run(name,viewport,fn,desktop=false) {
  page.on("pageerror",error=>errors.push(error.message));
  page.on("console",message=>{if(message.type()==="error") errors.push(message.text());});
  try {
-  await page.goto(`http://127.0.0.1:4317/?case=${name.split("-")[0]}${desktop?"&desktop=true":""}`);
+  await page.goto(`${fixtureURL}/?case=${name.split("-")[0]}${desktop?"&desktop=true":""}`);
   await page.locator(name.startsWith("connection")?".lh-connection-form":name.startsWith("setup")?'[data-testid="setup-dialog"]':name.startsWith("new")?'[data-testid="composer"]':".lh-panel-frame").waitFor();
   await page.waitForTimeout(500);
   assert.equal(await page.evaluate(()=>matchMedia("(pointer:coarse)").matches),!desktop);
@@ -28,6 +22,11 @@ async function run(name,viewport,fn,desktop=false) {
   console.log(`Passed ${name}`);
   await page.screenshot({path:`${output}/${name}.png`});
   evidence.push({name,viewport,touch:!desktop,errors});
+ } catch(error) {
+  await page.screenshot({path:`${output}/${name}-failed.png`}).catch(()=>{});
+  evidence.push({name,viewport,touch:!desktop,errors,failure:String(error)});
+  await writeFile(`${output}/evidence.json`,JSON.stringify(evidence,null,2));
+  throw error;
  } finally {await context.close();}
 }
 async function geometry(page,{heading=true}={}) {

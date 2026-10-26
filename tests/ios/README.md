@@ -52,7 +52,9 @@ or Send while editing, and observing synthetic server acceptance/continuation.
 The custom-answer case also requires the software keyboard to disappear after
 submission. Assertions fail if the native accessibility tree cannot expose the
 controls. Screenshots are attached to every test's `.xcresult`; CI retains that
-bundle on success and failure.
+bundle on success and failure. Failed assertions also attach the native
+accessibility hierarchy and an immediate screenshot. Offscreen question fields
+are discovered by bounded accessibility-driven scrolling before input assertions.
 
 This is a shared-component fixture inside the native wrapper, not a production
 server integration test. API replies are mocked in memory; it does not verify

@@ -10,6 +10,21 @@ final class MobileSmoke: XCTestCase {
         XCTAssertTrue(app.staticTexts["Synthetic iOS smoke"].waitForExistence(timeout: 20))
     }
 
+    override func record(_ issue: XCTIssue) {
+        if let app = app {
+            print("Synthetic accessibility hierarchy at failure:\n\(app.debugDescription)")
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Accessibility hierarchy at failure - \(name)"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "Screen at failure - \(name)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+        super.record(issue)
+    }
+
     override func tearDownWithError() throws {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
@@ -24,7 +39,18 @@ final class MobileSmoke: XCTestCase {
 
     func field(_ placeholder: String) -> XCUIElement {
         let element = app.descendants(matching: .any).matching(NSPredicate(format: "placeholderValue == %@", placeholder)).firstMatch
-        XCTAssertTrue(element.waitForExistence(timeout: 20), "Missing accessible text entry: \(placeholder)")
+        // WKWebView may omit controls outside its nested scrolling surface
+        // from the accessibility tree. First wait for the question UI, then
+        // discover the field with real scrolling before requiring a match.
+        XCTAssertTrue(app.buttons["Submit answer"].waitForExistence(timeout: 20))
+        for _ in 0..<10 {
+            if element.waitForExistence(timeout: 0.5) && element.isHittable {
+                return element
+            }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.exists, "Missing accessible text entry after scrolling: \(placeholder)")
+        XCTAssertTrue(element.isHittable, "Text entry must be reachable after scrolling: \(placeholder)")
         return element
     }
 

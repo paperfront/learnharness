@@ -1,4 +1,5 @@
 "use client";
+import { isCompactLayout } from "@/components/touch-layout";
 import { apiFetch, downloadApiFile } from "@/lib/api-client";
 
 
@@ -99,7 +100,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [mounted, setMounted] = useState(false);
 	const pathname = usePathname();
 	useEffect(() => {
-		if (window.innerWidth < 640) setOpen(false);
+		if (isCompactLayout()) setOpen(false);
 	}, [pathname]);
 
 	useEffect(() => {
@@ -125,9 +126,21 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
 		const stored = localStorage.getItem(STORAGE_KEY);
 		// Default: open (first run introduces the sidebar).
-		setOpen(window.innerWidth < 640 ? false : stored === null ? true : stored === "1");
+		setOpen(isCompactLayout() ? false : stored === null ? true : stored === "1");
 		setMounted(true);
 		return () => off?.();
+	}, []);
+	useEffect(() => {
+		let previousWidth = window.innerWidth;
+		const resize = () => {
+			const nextCompact = isCompactLayout();
+			// A software keyboard changes height; it must not close sidebar
+			// search while the learner is typing into it.
+			if (nextCompact && previousWidth !== window.innerWidth) setOpen(false);
+			previousWidth = window.innerWidth;
+		};
+		window.addEventListener("resize", resize);
+		return () => window.removeEventListener("resize", resize);
 	}, []);
 
 	// Narrow-window auto-close/auto-restore (see SIDEBAR_AUTOCLOSE note):
@@ -642,7 +655,7 @@ function SessionsSidebar() {
 
 	return (
 		<aside
-			className={cn("sidebar-motion max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			className={cn("lh-sidebar sidebar-motion max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
 			aria-hidden={!open}
 		>
 			<div className="flex h-full w-72 flex-col border-r bg-background">
@@ -939,7 +952,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 	const { open, toggle } = useSidebar();
 	return (
 		<SettingsDialogProvider>
-			{open && <button aria-label="Dismiss sidebar" onClick={toggle} className="absolute inset-0 z-30 bg-black/50 sm:hidden" />}
+			{open && <button aria-label="Dismiss sidebar" onClick={toggle} className="lh-sidebar-dismiss absolute inset-0 z-30 bg-black/50 sm:hidden" />}
 			<SessionsSidebar />
 			<main className="min-w-0 flex-1">{children}</main>
 			{/* The single document-level keydown listener (keyboard wave A) —

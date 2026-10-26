@@ -70,6 +70,8 @@ export interface QuestionDockProps {
 	 */
 	reveal?: boolean;
 	onExpand: () => void;
+	/** Touch users can read the transcript without losing their answer. */
+	onCollapse?: () => void;
 	onSubmit: (output: QuestionAnswerData) => void;
 	/** Escape in a question field stops dictation (STT wave) — threaded
 	 *  from the page that owns the dictation hook. */
@@ -99,6 +101,7 @@ export function QuestionDock({
 	expanded,
 	reveal = false,
 	onExpand,
+	onCollapse,
 	onSubmit,
 	onEscape,
 	phase = "probe",
@@ -158,6 +161,7 @@ export function QuestionDock({
 					onEscape={onEscape}
 					dictationClaim={dictationClaim}
 					compactionRunning={compactionRunning}
+					onCollapse={onCollapse}
 				/>
 			</div>
 		</>
@@ -253,6 +257,7 @@ function QuestionDockForm({
 	onEscape,
 	dictationClaim = true,
 	compactionRunning = false,
+	onCollapse,
 }: Omit<QuestionDockProps, "expanded" | "onExpand" | "reveal">) {
 	const kind = toolQuestionKind(toolName);
 
@@ -540,12 +545,13 @@ function QuestionDockForm({
 	}, [kbdIdx]);
 
 	return (
-		<div ref={rootRef} data-testid="question-dock">
+		<div ref={rootRef} data-testid="question-dock" className="lh-panel-frame">
+			<div className="lh-question-scroll">
 			{/* Question area — scrolls internally if very tall; the bottom row stays put.
 			    Capped by the measured column (--dock-max-h; the old fixed 55dvh cut
 			    long questions short — owner round, 2026-10-05). */}
-			<div data-session-find-root="" className="max-h-[var(--dock-max-h,55dvh)] overflow-y-auto px-4 pt-3">
-				<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+			<div data-session-find-root="" className="lh-question-prose max-h-[var(--dock-max-h,55dvh)] overflow-y-auto px-4 pt-3">
+				<div className="lh-question-label mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 					{toolName === "probe"
 						? "Probe"
 						: toolName === "recall"
@@ -558,6 +564,7 @@ function QuestionDockForm({
 										? "Explain"
 											: "Question"}
 					{qd.mode === "multi-select" && " · select all that apply"}
+					{onCollapse && <button type="button" onClick={onCollapse} className="lh-read-conversation">Read conversation</button>}
 				</div>
 				<div className="mb-3 font-medium">
 					<MessageResponse>{qd.question}</MessageResponse>
@@ -811,13 +818,14 @@ function QuestionDockForm({
 				</div>
 			)}
 
+			</div>
 			{/* The learner's half of the dock — a composer TWIN: a labeled, bordered
 			    field with Submit docked inside, exactly like the chat composer's
 			    send. Select modes get "Your thinking" (Enter makes a newline — it
 			    is for dumping, soon dictated; the button submits); text mode
 			    keeps "Your answer" with Enter-to-submit. */}
 			<form
-				className="border-t border-border/60 p-1.5"
+				className="lh-answer-form border-t border-border/60 p-1.5"
 				onSubmit={(e) => {
 					e.preventDefault();
 					submit();
@@ -895,7 +903,7 @@ function QuestionDockForm({
 						/>
 					)}
 					<div className="flex items-center justify-between gap-2 p-1">
-						<span aria-hidden className="pl-1.5 text-xs text-muted-foreground">
+						<span aria-hidden className={cn("pl-1.5 text-xs text-muted-foreground", !compactionRunning && "lh-keyboard-hint")}>
 								{compactionRunning ? "compacting session…" : "↵ submits · ⇧↵ newline"}
 						</span>
 						<Button

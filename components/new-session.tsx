@@ -1,4 +1,5 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
 import { apiFetch } from "@/lib/api-client";
 
 
@@ -149,7 +150,7 @@ export function DraftShell({
 			dictationWasActiveRef.current = true;
 		} else if (dictationWasActiveRef.current) {
 			dictationWasActiveRef.current = false;
-			composerInputRef.current?.focus();
+			focusAutomatically(composerInputRef.current);
 		}
 	}, [dictation.active]);
 	return (

@@ -72,13 +72,14 @@ export interface MenuPlacement {
  *  room when there is room; the floor keeps it usable when there isn't. */
 export function computeMenuPlacement(
 	rect: { top: number; bottom: number; left: number; right: number },
-	viewport: { width: number; height: number },
+	viewport: { width: number; height: number; offsetTop?: number },
 	contentHeight: number,
 	preferredSide: MenuSide,
 	align: MenuAlign,
 ): MenuPlacement {
-	const availDown = viewport.height - EDGE - (rect.bottom + GAP);
-	const availUp = rect.top - GAP - EDGE;
+	const viewportTop = viewport.offsetTop ?? 0;
+	const availDown = viewportTop + viewport.height - EDGE - (rect.bottom + GAP);
+	const availUp = rect.top - viewportTop - GAP - EDGE;
 	// contentHeight ≤ 0 (nothing measured yet) keeps the preferred side —
 	// the hidden first pass re-measures and decides with real numbers.
 	let side = preferredSide;
@@ -90,11 +91,15 @@ export function computeMenuPlacement(
 		}
 	}
 	const avail = side === "down" ? availDown : availUp;
-	const maxHeight = Math.max(MIN_USABLE, Math.min(CAP_VH * viewport.height, avail));
+	const desiredHeight = Math.max(MIN_USABLE, Math.min(CAP_VH * viewport.height, avail));
+	const maxHeight = viewport.offsetTop === undefined ? desiredHeight : Math.min(Math.max(0, viewport.height - EDGE * 2), desiredHeight);
 	const horizontal: Record<string, number> =
 		align === "right" ? { right: viewport.width - rect.right } : { left: rect.left };
+	const menuHeight = Math.min(maxHeight, Math.max(0, contentHeight));
+	const anchorTop = side === "down" ? rect.bottom + GAP : rect.top - GAP - menuHeight;
+	const visibleTop = Math.max(viewportTop + EDGE, Math.min(anchorTop, viewportTop + viewport.height - EDGE - menuHeight));
 	const vertical: Record<string, number> =
-		side === "down" ? { top: rect.bottom + GAP } : { bottom: viewport.height - rect.top + GAP };
+		viewport.offsetTop !== undefined ? { top: visibleTop } : side === "down" ? { top: rect.bottom + GAP } : { bottom: viewport.height - rect.top + GAP };
 	return { side, style: { ...horizontal, ...vertical }, maxHeight };
 }
 
@@ -200,7 +205,7 @@ export function MenuShell({
 			if (!el || !menuRef.current) return;
 			const p = computeMenuPlacement(
 				el.getBoundingClientRect(),
-				{ width: window.innerWidth, height: window.innerHeight },
+				{ width: window.innerWidth, height: window.visualViewport?.height ?? window.innerHeight, ...(window.visualViewport ? {offsetTop: window.visualViewport.offsetTop} : {}) },
 				menuRef.current.scrollHeight,
 				preferredSide,
 				align,
@@ -214,10 +219,14 @@ export function MenuShell({
 		};
 		window.addEventListener("scroll", rePlace, true);
 		window.addEventListener("resize", rePlace);
+		window.visualViewport?.addEventListener("resize", rePlace);
+		window.visualViewport?.addEventListener("scroll", rePlace);
 		return () => {
 			cancelAnimationFrame(raf);
 			window.removeEventListener("scroll", rePlace, true);
 			window.removeEventListener("resize", rePlace);
+			window.visualViewport?.removeEventListener("resize", rePlace);
+			window.visualViewport?.removeEventListener("scroll", rePlace);
 		};
 	}, [anchorRef, anchorTestid, preferredSide, align]);
 
@@ -245,7 +254,7 @@ export function MenuShell({
 			data-lh-menu=""
 			tabIndex={-1}
 			onKeyDown={onBodyKeyDown}
-			style={{ position: "fixed", zIndex: 60, ...placed.style, maxHeight: placed.maxHeight, overflowY: "auto" }}
+			style={{ position: "fixed", zIndex: 60, ...placed.style, maxWidth: "calc(100vw - 16px)", maxHeight: placed.maxHeight, overflowY: "auto" }}
 			// The body is the arrow machine's focus home (input-less menus
 			// land focus here on open) — the focus STAYS, but the browser's
 			// default blue ring around it must not draw (owner, polish

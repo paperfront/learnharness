@@ -1,4 +1,5 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
 import { apiFetch } from "@/lib/api-client";
 
 /**
@@ -169,7 +170,7 @@ function KeyTableRow({
 						aria-label={`${label} key`}
 						data-testid={`${testid}-input`}
 						disabled={busy}
-						autoFocus
+						ref={focusAutomatically}
 						className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 					/>
 					<button
@@ -512,7 +513,7 @@ function AddProviderEditor({
 				placeholder="Paste key…"
 				aria-label={`${provider.label} key`}
 				data-testid={`key-${provider.id}-input`}
-				autoFocus
+				ref={focusAutomatically}
 				className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 			/>
 			<button

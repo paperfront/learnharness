@@ -1,4 +1,5 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
 import { apiFetch } from "@/lib/api-client";
 
 /**
@@ -194,7 +195,7 @@ export function SetupKeysBody({
 							aria-label={`${provider.label} key`}
 							data-testid="setup-key-input"
 							disabled={saving}
-							autoFocus
+							ref={focusAutomatically}
 							className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 						/>
 						<button
@@ -402,7 +403,7 @@ export function SetupDialog({
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-background/80"
+			className="lh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80"
 			data-testid="setup-backdrop"
 			{...backdropDismiss}
 		>
@@ -430,7 +431,7 @@ export function SetupDialog({
 				</header>
 
 				{stage === "keys" ? (
-					<div className="flex flex-col px-6 py-5">
+					<div className="min-h-0 overflow-y-auto px-6 py-5">
 						{failed ? (
 							<p className="text-sm text-foreground">
 								Model catalog could not be loaded. Check the connection and retry.

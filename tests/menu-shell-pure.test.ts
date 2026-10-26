@@ -80,3 +80,16 @@ describe("computeMenuPlacement — cap + position", () => {
 		assert.ok(!("right" in p.style));
 	});
 });
+it("places menus inside the shifted visible viewport when the keyboard is open", () => {
+ const p=computeMenuPlacement(rect(310,350),{width:390,height:360,offsetTop:20},200,"down","right");
+ assert.equal(p.side,"up");assert.equal(p.style.top,106);
+ const tiny=computeMenuPlacement(rect(40,60),{width:375,height:90,offsetTop:0},300,"down","right");
+ assert.equal(tiny.maxHeight,74,"a software keyboard must not force the menu beyond the visible viewport");
+});
+it("clamps either menu side when neither side fits inside a short shifted viewport",()=>{
+ for(const side of ["up","down"] as const) {
+  const p=computeMenuPlacement(rect(50,70),{width:375,height:90,offsetTop:20},300,side,"right");
+  assert.equal(p.maxHeight,74);assert.equal(p.style.top,28);
+  assert.ok(Number(p.style.top)+p.maxHeight<=110);
+ }
+});

@@ -1,4 +1,5 @@
 "use client";
+import { useAutomaticFocusRef } from "@/components/touch-layout";
 
 import { ArrowRightIcon, CornerDownLeftIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ export function Composer({
 	 *  empty-Enter share it. */
 	onNext?: () => void;
 }) {
+	const automaticInputRef = useAutomaticFocusRef(inputRef, autoFocus ?? false);
 	const act = () => {
 		const action = enterAction({ busy, canSend, nextProblem });
 		if (action === "stop") onStop();
@@ -91,7 +93,7 @@ export function Composer({
 			}}
 		>
 			<textarea
-				ref={inputRef}
+				ref={automaticInputRef}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				onKeyDown={(e) => {
@@ -114,7 +116,6 @@ export function Composer({
 					}
 				}}
 				placeholder={placeholder}
-				autoFocus={autoFocus}
 				rows={1}
 				className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 			/>

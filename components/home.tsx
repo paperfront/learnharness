@@ -1,4 +1,5 @@
 "use client";
+import { focusAutomatically, useAutomaticFocusRef } from "@/components/touch-layout";
 import { apiFetch } from "@/lib/api-client";
 
 
@@ -69,6 +70,7 @@ export function Home({
 	 * the keyboard from the stop. Falling edge only; this surface's only
 	 * dictation target IS this textarea, so no case-split is needed. */
 	const topicInputRef = useRef<HTMLTextAreaElement>(null);
+	const topicFocusRef = useAutomaticFocusRef(topicInputRef);
 	// Tab navigates INTO the topic composer (owner, keyboard round
 	// 2026-10-06): the only text field on this surface — and home's
 	// composer is its OWN textarea, not the shared Composer component,
@@ -85,7 +87,7 @@ export function Home({
 			dictationWasActiveRef.current = true;
 		} else if (dictationWasActiveRef.current) {
 			dictationWasActiveRef.current = false;
-			topicInputRef.current?.focus();
+			focusAutomatically(topicInputRef.current);
 		}
 	}, [dictation.active]);
 
@@ -251,7 +253,7 @@ export function Home({
 					}}
 				>
 					<textarea
-						ref={topicInputRef}
+						ref={topicFocusRef}
 						value={topic}
 						onChange={(e) => {
 							topicRef.current = e.target.value;
@@ -273,7 +275,6 @@ export function Home({
 							}
 						}}
 						placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
-						autoFocus
 						rows={1}
 						className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 					/>

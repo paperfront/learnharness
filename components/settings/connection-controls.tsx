@@ -1,4 +1,5 @@
 "use client";
+import { allowAutomaticTextFocus } from "@/components/touch-layout";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useBackdropDismiss } from "@/components/backdrop-dismiss";
@@ -26,7 +27,8 @@ export function ConnectionDialog({ children, onClose, busy, label, testid, backd
 	useEffect(() => {
 		const previous = document.activeElement as HTMLElement | null;
 		const focusable = () => [...(ref.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled])') ?? [])];
-		focusable()[0]?.focus();
+		if (allowAutomaticTextFocus()) focusable()[0]?.focus({ preventScroll: true });
+		else ref.current?.focus({ preventScroll: true });
 		const key = (event: KeyboardEvent) => {
 			if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); closeRef.current(); }
 			else if (event.key === "Tab") {
@@ -37,9 +39,9 @@ export function ConnectionDialog({ children, onClose, busy, label, testid, backd
 			}
 		};
 		document.addEventListener("keydown", key, true);
-		return () => { document.removeEventListener("keydown", key, true); if (previous?.isConnected) previous.focus(); };
+		return () => { document.removeEventListener("keydown", key, true); if (previous?.isConnected && allowAutomaticTextFocus()) previous.focus({ preventScroll: true }); };
 	}, []);
-	return createPortal(<div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80" data-testid={backdropTestid} {...backdropDismiss}>
-		<div ref={ref} role="dialog" aria-modal="true" aria-label={label} aria-busy={busy} data-testid={testid} onClick={(event) => event.stopPropagation()} className="settings-dialog-pop mx-4 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md border border-border bg-card p-5 shadow-xl">{children}</div>
+	return createPortal(<div className="lh-dialog-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-background/80" data-testid={backdropTestid} {...backdropDismiss}>
+		<div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} aria-busy={busy} data-testid={testid} onClick={(event) => event.stopPropagation()} className="settings-dialog-pop mx-4 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md border border-border bg-card p-5 shadow-xl">{children}</div>
 	</div>, document.body);
 }

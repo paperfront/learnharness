@@ -9,6 +9,8 @@ import "@/app/globals.css";
 import "./mobile.css";
 import { iosConnectionStorage } from "./connection-storage";
 import { normalizeMobileUrl, mobileNavigationUrl } from "./routing";
+import { installMobileViewport } from "./viewport";
+installMobileViewport();
 function currentUrl() { const next = normalizeMobileUrl(window.location.href); if (next.href !== window.location.href) window.history.replaceState(null, "", next); return next; }
 function App() {
  const [url, setUrl] = useState(currentUrl);

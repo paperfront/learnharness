@@ -1,4 +1,7 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { createContext, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useChatSession } from "@/components/session";
@@ -57,6 +60,7 @@ import { PracticeDock } from "@/components/practice-dock";
 import { ThinkingCard, type PracticeThinkingData } from "@/components/practice-cards";
 import { GraphContextCard, type GraphContextData } from "@/components/graph-context-card";
 import { TopBar } from "@/components/top-bar";
+import { dockShellAllowance, historyScrollTop } from "@/components/dock-geometry";
 import type { ArtifactPartProps, JobRecord, Phase3, QuestionAnswerData, TurnUsage, SessionPricing } from "@/src/core";
 import type { LhViewMessage } from "@/src/core";
 import { PhaseChip, PhaseDivider } from "@/components/phase-divider";
@@ -281,7 +285,7 @@ export function Chat({
 			const t = next.trim();
 			if (t === "" || t === titleText) return; // empty commit = discard
 			try {
-				const res = await fetch(`/api/chats/${chatId}`, {
+				const res = await apiFetch(`/api/chats/${chatId}`, {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ title: t }),
@@ -343,7 +347,7 @@ export function Chat({
 	// abort's own onFinish. Inert when nothing runs (busyRef gate).
 	const abortInFlightTurn = useCallback(() => {
 		if (localStreamRef.current) stop();
-		void fetch("/api/activity/abort", {
+		void apiFetch("/api/activity/abort", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ kind: "turn", id: chatId }),
@@ -565,7 +569,7 @@ export function Chat({
 	// the setup CTA appears/disappears live (it used to lag until reload).
 	useSettingsSaved((section) => {
 		if (section !== "models") return;
-		fetch("/api/settings")
+		apiFetch("/api/settings")
 			.then((r) => r.json() as Promise<{ settings?: { models?: ModelsSettings } | null } | null>)
 			.then((body) => setConfigured(slotsConfigured(body?.settings?.models)))
 			.catch(() => {});
@@ -601,7 +605,7 @@ export function Chat({
 		// record refetch (the honest truth minus the refused send).
 		let cancelled = false;
 		void (async () => {
-			const res = await fetch(`/api/chats/${encodeURIComponent(chatId)}`);
+			const res = await apiFetch(`/api/chats/${encodeURIComponent(chatId)}`);
 			if (!cancelled && res.ok) {
 				const record = (await res.json().catch(() => null)) as { messages?: LhMessage[] } | null;
 				if (Array.isArray(record?.messages)) setMessages(record.messages);
@@ -656,7 +660,7 @@ export function Chat({
 			dictationWasActiveRef.current = true;
 		} else if (dictationWasActiveRef.current) {
 			dictationWasActiveRef.current = false;
-			composerInputRef.current?.focus();
+			focusAutomatically(composerInputRef.current);
 		}
 	}, [dictation.active]);
 
@@ -715,7 +719,7 @@ export function Chat({
 	useEnterSubmits(sendNext);
 
 	const syncFromServer = useCallback(async () => {
-		const res = await fetch(`/api/chats/${chatId}`);
+		const res = await apiFetch(`/api/chats/${chatId}`);
 		if (!res.ok) return;
 		const record = (await res.json()) as { messages?: LhMessage[]; turns?: TurnUsage[]; pricing?: SessionPricing };
 		if (Array.isArray(record.turns)) setTurns(record.turns);
@@ -754,7 +758,7 @@ export function Chat({
 	// full syncFromServer stays the net at idle (reorder, plan blocks, turns).
 	const adoptAppendOnly = useCallback(async () => {
 		try {
-			const res = await fetch(`/api/chats/${chatId}`);
+			const res = await apiFetch(`/api/chats/${chatId}`);
 			if (!res.ok) return;
 			const record = (await res.json()) as { messages?: LhMessage[] };
 			if (!Array.isArray(record.messages)) return;
@@ -864,7 +868,7 @@ export function Chat({
 	const [dockReserve, setDockReserve] = useState(208);
 	const syncTurns = useCallback(async () => {
 		try {
-			const res = await fetch(`/api/chats/${chatId}`);
+			const res = await apiFetch(`/api/chats/${chatId}`);
 			if (!res.ok) return;
 			const record = (await res.json()) as { turns?: TurnUsage[]; pricing?: SessionPricing };
 			if (Array.isArray(record.turns)) setTurns(record.turns);
@@ -934,7 +938,7 @@ export function Chat({
 		let cancelled = false;
 		void (async () => {
 			try {
-				const res = await fetch(`/api/chats/${chatId}`);
+				const res = await apiFetch(`/api/chats/${chatId}`);
 				if (!res.ok || cancelled) return;
 				const record = (await res.json()) as { turnInFlight?: boolean };
 				if (cancelled) return;
@@ -986,7 +990,7 @@ export function Chat({
 	const fetchJobsRef = useRef<() => void>(() => {});
 	const fetchJobs = useCallback(async () => {
 		try {
-			const res = await fetch(`/api/jobs?chatId=${encodeURIComponent(chatId)}`);
+			const res = await apiFetch(`/api/jobs?chatId=${encodeURIComponent(chatId)}`);
 			if (!res.ok) return;
 			const data = (await res.json()) as { jobs?: JobRecord[]; turnInFlight?: boolean };
 			const list = data.jobs ?? [];
@@ -1193,7 +1197,7 @@ export function Chat({
 		    chip) spans from the left sidebar's edge to the panel's edge. The
 		    dock overlays the column bottom (outside the scroller); a spacer in
 		    the transcript reserves its height. */}
-		<div className="flex h-dvh">
+		<div className="flex h-full">
 			<div className="flex min-w-0 flex-1 flex-col">
 				{/* The top bar is its own block (owner, top-fade round 4): in flow
 				    above the scroller on the plain page background — no gradient. Its
@@ -1596,6 +1600,8 @@ export function Chat({
 				    fold) and NEVER overlaps the composer. */}
 				<DockOverlay
 					pending={pending}
+					submitting={busy}
+					submitError={error?.message}
 					practice={activeProblem}
 					compactionRunning={compacting}
 					onSubmitThinking={submitThinking}
@@ -1664,7 +1670,6 @@ export function Chat({
 						// reading-thinking draft rides along (owner 2026-10-03) — the
 						// check answer is its only carrier.
 						const reading = readingThinkingRef.current.trim() || undefined;
-						clearReadingThinking();
 						submitAnswer(pending.tool, pending.toolCallId, reading ? { ...output, readingThinking: reading } : output);
 					}}
 				/>
@@ -1841,8 +1846,12 @@ function DockOverlay({
 	dictationCancel,
 	setupCta,
 	queuedSteers,
+	submitting,
+	submitError,
 }: {
 	pending: ReturnType<typeof findPendingToolCall>;
+	submitting: boolean;
+	submitError?: string;
 	/** Compaction running for this chat (round 14) — the docks' submit
 	 *  affordance gate (the server's registry is the real one). */
 	compactionRunning: boolean;
@@ -1889,7 +1898,7 @@ function DockOverlay({
 	 *  home and /chat/new carry, above the composer while slots are unset. */
 	setupCta?: React.ReactNode;
 }) {
-	const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
+	const { isAtBottom, scrollToBottom, stopScroll, scrollRef } = useStickToBottomContext();
 	// Render-fresh bottom state (flicker round): the arrival block below reads
 	// it DURING RENDER — the same value the after-paint effect used to read a
 	// frame too late. Assigned per render like the other refs below.
@@ -1898,6 +1907,7 @@ function DockOverlay({
 	// Teach-phase mount (session reload with a pending check): the dock starts
 	// as the collapsed invitation too — the check must not pop open on reload.
 	const [expanded, setExpanded] = useState(!requiresReveal);
+	const readingHistoryRef = useRef(false);
 	// Reveal state (W5): false until the learner clicks the invitation. While
 	// false, the scroll machine must NOT auto-expand at the bottom — the
 	// learner reads the teaching first and opens the check when ready. Once
@@ -1919,6 +1929,7 @@ function DockOverlay({
 	// only motion is the teaching text itself.
 	const prevPendingIdRef = useRef(pendingId);
 	if (pendingId !== prevPendingIdRef.current) {
+		readingHistoryRef.current = false;
 		const wasQuestion = prevPendingIdRef.current !== null;
 		prevPendingIdRef.current = pendingId;
 		if (pendingId && requiresReveal) {
@@ -2011,16 +2022,43 @@ function DockOverlay({
 	// gap, carried as --dock-max-h for the docks' scroll areas.
 	const [sbInset, setSbInset] = useState(0);
 	const [dockMaxH, setDockMaxH] = useState<number | null>(null);
+	const [shellMaxH, setShellMaxH] = useState<number | null>(null);
+	const [columnMaxH, setColumnMaxH] = useState<number | null>(null);
+	useEffect(() => {
+		const block = blockRef.current;
+		const active = document.activeElement;
+		if (!block || block.dataset.short !== "true" || !(active instanceof HTMLElement) || !block.contains(active) || !active.matches("input, textarea")) return;
+		const frame = requestAnimationFrame(() => {
+			const field = active.closest<HTMLElement>(".lh-answer-form") ?? active;
+			const bounds = block.getBoundingClientRect();
+			const target = field.getBoundingClientRect();
+			if (target.height <= block.clientHeight && target.bottom > bounds.bottom) block.scrollTop += target.bottom - bounds.bottom;
+			else if (active.getBoundingClientRect().bottom > bounds.bottom) block.scrollTop += active.getBoundingClientRect().bottom - bounds.bottom;
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [columnMaxH, shellMaxH]);
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (!el) return;
+		let previousHeight = el.clientHeight;
+		let previousWidth = el.clientWidth;
 		const measure = () => {
 			setSbInset(Math.round((el.offsetWidth - el.clientWidth) / 2));
 			setDockMaxH(Math.max(el.clientHeight - 32, 160));
+			setColumnMaxH(Math.max(0, el.clientHeight - 8));
+			const block = blockRef.current;
+			const shell = shellRef.current;
+			if (block && shell) setShellMaxH(dockShellAllowance(el.clientHeight, block.scrollHeight, shell.offsetHeight));
+			if (previousHeight !== el.clientHeight || previousWidth !== el.clientWidth) geometryAtRef.current = Date.now();
+			previousHeight = el.clientHeight;
+			previousWidth = el.clientWidth;
 		};
 		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		if (blockRef.current) observer.observe(blockRef.current);
 		window.addEventListener("resize", measure);
-		return () => window.removeEventListener("resize", measure);
+		return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
 	}, [scrollRef]);
 
 	// GROWTH MUTE (owner round, 2026-10-05 — the generation churn): during a
@@ -2063,6 +2101,7 @@ function DockOverlay({
 		};
 		const onWheel = (e: WheelEvent) => {
 			if (e.deltaY === 0) return;
+			if (canScroll(root, e.deltaY)) return;
 			for (let n = e.target as HTMLElement | null; n && n !== root; n = n.parentElement) {
 				if (n instanceof HTMLElement && canScroll(n, e.deltaY)) return; // native
 			}
@@ -2122,12 +2161,20 @@ function DockOverlay({
 		});
 	};
 	const expandAndReveal = () => {
+		readingHistoryRef.current = false;
 		setRevealed(true); // the teach-check invitation was accepted (W5)
 		setExpanded(true);
 		void suppressFoldDuringReveal();
 	};
 	const expandAndRevealRef = useRef(expandAndReveal);
 	expandAndRevealRef.current = expandAndReveal;
+	const readConversation = () => {
+		stopScroll();
+		readingHistoryRef.current = true;
+		setExpanded(false);
+		const el = scrollRef.current;
+		if (el) el.scrollTop = historyScrollTop(el.scrollHeight, el.clientHeight, reserveRef.current);
+	};
 	// ENTER OPENS THE WAITING CHECK (owner, keyboard round 2026-10-06):
 	// while a question waits with the dock CLOSED — behind its reveal
 	// invitation or collapsed by scroll — Enter is never dead. Any live
@@ -2181,6 +2228,7 @@ function DockOverlay({
 				// left the bottom.
 				if (d > COLLAPSE_DIST && !expandIntentRef.current && !atBottomRef.current) setExpanded(false);
 			} else if (d < EXPAND_DIST) {
+				if (readingHistoryRef.current) return;
 				// Teach checks stay collapsed until the learner opens them (W5): the
 				// at-bottom auto-expand would pop the form over the teaching.
 				if (requiresRevealRef.current && !revealedRef.current) return;
@@ -2217,6 +2265,17 @@ function DockOverlay({
 	// morphs, but the bar↔form content used to hard-swap. A WAAPI fade/rise
 	// on the toggle — no remount, so the question form's state survives.
 	const contentRef = useRef<HTMLDivElement>(null);
+	useIsoLayoutEffect(() => {
+		if (expanded || !readingHistoryRef.current) return;
+		const el = scrollRef.current;
+		const block = blockRef.current;
+		const shell = shellRef.current;
+		const content = contentRef.current;
+		if (el && block && shell && content) {
+			const clearance = block.scrollHeight - shell.offsetHeight + content.offsetHeight + 16;
+			el.scrollTop = historyScrollTop(el.scrollHeight, el.clientHeight, reserveRef.current, clearance);
+		}
+	}, [expanded, scrollRef]);
 	const prevExpandedForFadeRef = useRef(expanded);
 	useIsoLayoutEffect(() => {
 		if (prevExpandedForFadeRef.current === expanded) return;
@@ -2264,7 +2323,7 @@ function DockOverlay({
 	return (
 		<div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ right: sbInset }}>
 			<div className="h-24 bg-gradient-to-t from-background via-background/85 to-transparent" />
-			<div ref={blockRef} className="relative bg-background pb-5" style={{ "--dock-max-h": dockMaxH ? `${dockMaxH}px` : undefined } as React.CSSProperties}>
+			<div ref={blockRef} data-short={shellMaxH !== null && shellMaxH < 220} className="lh-dock-block relative bg-background pb-5" style={{ "--dock-max-h": dockMaxH ? `${dockMaxH}px` : undefined, "--dock-shell-max-h": shellMaxH !== null ? `${shellMaxH}px` : undefined, "--dock-column-max-h": columnMaxH !== null ? `${columnMaxH}px` : undefined } as React.CSSProperties}>
 				<div className={DOCK}>
 					{setupCta}
 					{/* The queued-steer indicator (owner spec 2026-10-03): quiet
@@ -2293,7 +2352,7 @@ function DockOverlay({
 							claim={revealPending}
 						/>
 					)}
-					<div ref={shellRef} className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
+					<div ref={shellRef} className="lh-dock-shell pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
 						<div
 						ref={contentRef}
 						key={mode}
@@ -2303,6 +2362,8 @@ function DockOverlay({
 								<QuestionDock
 									toolName={pending.tool as "quiz" | "probe" | "ask_user_question" | "explain" | "recall"}
 									toolCallId={pending.toolCallId}
+									submitting={submitting}
+									submitError={submitError}
 									input={pending.input as never}
 									expanded={expanded}
 									reveal={revealPending}
@@ -2312,6 +2373,7 @@ function DockOverlay({
 									onEscape={dictationCancel}
 									dictationClaim={!revealPending}
 									compactionRunning={compactionRunning}
+									onCollapse={readConversation}
 								/>
 							) : practice ? (
 								<PracticeDock
@@ -2319,12 +2381,14 @@ function DockOverlay({
 									input={practice.input as { statement: string }}
 									expanded={expanded}
 									onExpand={() => {
+										readingHistoryRef.current = false;
 										setExpanded(true);
 										void suppressFoldDuringReveal();
 									}}
 									onSubmit={onSubmitThinking}
 									onEscape={dictationCancel}
 									compactionRunning={compactionRunning}
+									onCollapse={readConversation}
 								/>
 							) : (
 								composer

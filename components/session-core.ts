@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-client";
 /**
  * THE SESSION MODEL (Wave D): the chat session's state machine, extracted
  * PURE — no React, one injectable fetch — so the attach/replay/settle/
@@ -244,7 +245,7 @@ export class SessionModel {
 		// unbound makes every call throw "Illegal invocation" in the browser
 		// (Node's undici doesn't care, so the tests never saw it). Always go
 		// through a receiver-preserving wrapper.
-		this.fetch = opts.fetch ?? ((...args) => globalThis.fetch(...args));
+		this.fetch = opts.fetch ?? apiFetch;
 		this.pollMs = opts.pollMs ?? TURN_POLL_MS;
 		this.waitMaxMs = opts.waitMaxMs ?? TURN_WAIT_MAX_MS;
 		this.onChange = opts.onChange;
@@ -294,7 +295,7 @@ export class SessionModel {
 	private setStatus(status: SessionStatus): void {
 		if (status === "submitted") this.liveFailureId = null;
 		this.statusValue = status;
-		this.readyRef = status === "ready";
+		this.readyRef = status === "ready" || status === "error";
 		this.onChange?.();
 	}
 
@@ -526,6 +527,7 @@ export class SessionModel {
 				if (recordRes.ok) {
 					const record = (await recordRes.json()) as { messages?: LhMessage[] };
 					if (this.consumeAbort !== controller) return;
+					if (!Array.isArray(record.messages)) throw new Error("The refreshed session has no valid message record.");
 					if (Array.isArray(record.messages)) {
 						this.mutate(() => {
 							this.base = record.messages!;
@@ -534,13 +536,10 @@ export class SessionModel {
 						});
 					}
 				} else {
-					// The record did not land — restore the clean-slate guard
-					// before the replay (no atomic swap is coming).
-					this.mutate(() => {
-						this.incompleteUsageIds.clear();
-						this.tail = [];
-						this.streamingMessageId = null;
-					});
+					// Do not replay onto an unrefreshed record or discard an
+					// acknowledged answer. Error reconciliation can fetch the
+					// durable result when the connection recovers.
+					throw new Error(`Failed to refresh the session (${recordRes.status}).`);
 				}
 			}
 			const res = await this.fetch(`/api/chats/${encodeURIComponent(this.chatId)}/stream`, {
@@ -587,7 +586,9 @@ export class SessionModel {
 			const tool = pendingCallTool([...this.base, ...this.tail], input.toolCallId) ?? "quiz";
 			optimistic.push({ ...newAnswerResult(input.toolCallId, tool, input.answer), id: localId() });
 		}
-		if (optimistic.length > 0) this.mutate(() => {
+		// Keep an answer draft mounted until the server accepts it. A rejected
+		// request must not destroy the dock (and its custom text/thinking).
+		if (input.type !== "answer" && optimistic.length > 0) this.mutate(() => {
 			this.tail = [...this.tail, ...optimistic];
 		});
 		try {
@@ -615,6 +616,9 @@ export class SessionModel {
 				// page's refusal flow JSON-parses the envelope out of it.
 				throw new Error((await res.text()) || `The send failed (${res.status}).`);
 			}
+			if (input.type === "answer" && optimistic.length > 0) this.mutate(() => {
+				this.tail = [...this.tail, ...optimistic];
+			});
 			// CONNECTION DIET B (owner, 2026-10-10 — parallel-session freeze
 			// postmortem): the POST acknowledges and closes; there is no stream
 			// on this response to consume. Attach through the SAME reattach wire

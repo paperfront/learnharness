@@ -1,15 +1,16 @@
 "use client";
+import { openFetchEvents } from "@/lib/fetch-events";
 
 /**
  * THE NOTIFICATION CHANNEL'S CLIENT HALF (push-architecture slice 3,
- * 2026-10-02): ONE EventSource("/api/events") per open window, held for
+ * 2026-10-02): ONE authenticated fetch stream at /api/events per open window, held for
  * the window's lifetime — the channel that retires the app's poll
  * lattice. Every server-initiated change arrives as a named SSE frame;
  * consumers respond by fetching truth (notify → fetch, the architecture's
  * whole trick — see src/core/events.ts and server/events-stream.ts).
  *
- * This file is the ONE place in the app that knows EventSource exists.
- * Auto-reconnect is EventSource's own — never fought, always exploited:
+ * The fetch transport supports bearer auth for remote clients.
+ * The transport reconnects after network interruption:
  * every (re)open fires the resync callbacks, so a reconnect heals with
  * one ordinary fetch per consumer (a dev-server restart self-heals here).
  *
@@ -27,7 +28,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { SERVER_EVENT_TYPES, type ServerEventType, type ServerEvents } from "@/src/core";
 
-/** The minimal source surface the provider consumes — EventSource behind
+/** The minimal source surface the provider consumes — fetch streaming behind
  *  this in production, fakes in tests. */
 export interface NotifySource {
 	close(): void;
@@ -35,18 +36,7 @@ export interface NotifySource {
 	onEvent(name: string, cb: (data: string) => void): void;
 }
 
-export function openEventsChannel(): NotifySource {
-	const es = new EventSource("/api/events");
-	return {
-		close: () => es.close(),
-		onOpen: (cb) => {
-			es.onopen = () => cb();
-		},
-		onEvent: (name, cb) => {
-			es.addEventListener(name, (ev) => cb((ev as MessageEvent).data));
-		},
-	};
-}
+function openEventsChannel(): NotifySource { return openFetchEvents(); }
 
 /** The per-window fan-out: typed subscriptions over one source. Listener
  *  errors are isolated per the bus's law (one bad consumer never breaks
@@ -118,7 +108,12 @@ const EventsContext = createContext<ReturnType<typeof createNotifyHub> | null>(n
 
 export function ServerEventsProvider({ children, connect }: { children: ReactNode; connect?: () => NotifySource }) {
 	const hub = useMemo(() => createNotifyHub(), []);
-	useEffect(() => wireSource((connect ?? openEventsChannel)(), hub), [hub, connect]);
+	useEffect(() => {
+        let disconnect = wireSource((connect ?? openEventsChannel)(), hub);
+        const reconnect = () => { if (document.visibilityState === "hidden") return; disconnect(); disconnect = wireSource((connect ?? openEventsChannel)(), hub); };
+        document.addEventListener("visibilitychange", reconnect); window.addEventListener("online", reconnect);
+        return () => { disconnect(); document.removeEventListener("visibilitychange", reconnect); window.removeEventListener("online", reconnect); };
+    }, [hub, connect]);
 	return <EventsContext.Provider value={hub}>{children}</EventsContext.Provider>;
 }
 
@@ -140,7 +135,7 @@ export function useServerEvent<K extends ServerEventType>(type: K, cb: (payload:
 }
 
 /** Refetch truth on every (re)connect of the window's channel — the
- *  self-heal seam for EventSource reconnects and dev-server restarts. */
+ *  self-heal seam for stream reconnects and dev-server restarts. */
 export function useServerResync(cb: () => void): void {
 	const hub = useContext(EventsContext);
 	if (!hub) throw new Error("useServerResync requires <ServerEventsProvider>");

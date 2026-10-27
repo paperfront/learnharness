@@ -16,3 +16,11 @@ auth.json
 
 # dev-fresh launcher scratch (fresh-user sim): disposable per launch
 .fresh-data/
+
+# Bundled iOS client build output
+mobile-dist/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+
+# Synthetic native test assets
+mobile-fixture-dist/

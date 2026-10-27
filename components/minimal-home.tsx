@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 /**
  * THE MINIMAL HOME (owner, 2026-10-06 — the no-graph home, take two):
@@ -100,15 +102,15 @@ export function MinimalHome({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const readState = useCallback(() => {
-		fetch("/api/graph")
+		apiFetch("/api/graph")
 			.then((res) => res.json() as Promise<GraphSnapshot>)
 			.then(setSnapshot)
 			.catch(() => {});
-		fetch("/api/graph/costs")
+		apiFetch("/api/graph/costs")
 			.then((res) => res.json() as Promise<GraphCostSummary>)
 			.then(setCosts)
 			.catch(() => {});
-		fetch("/api/chats")
+		apiFetch("/api/chats")
 			.then((res) => res.json() as Promise<{ chats: ChatSummary[] }>)
 			.then((body) => setChats(body.chats))
 			.catch(() => {});

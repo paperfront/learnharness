@@ -1,0 +1,24 @@
+services:
+  server:
+    build:
+      context: ./source
+      dockerfile: hosting/ionos/Dockerfile
+    image: learngraphharness:local
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:9431:4310"
+    volumes:
+      - ./state:/state
+    environment:
+      LH_REMOTE_ALLOWED_ORIGINS: "capacitor://localhost,https://ubuntu-1.tail1441ca.ts.net:9443"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    shm_size: 256mb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,4 +1,5 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
 /**
  * The model menu (extracted 2026-09-20 from model-picker.tsx, owner ask:
  * the agent settings' role selects use the EXACT same dropdown as the
@@ -59,7 +60,7 @@ export function ModelMenuList({
 	const listRef = useRef<HTMLUListElement>(null);
 
 	useEffect(() => {
-		searchRef.current?.focus();
+		focusAutomatically(searchRef.current);
 	}, []);
 
 	// Keep the arrow-walked result visible in the scrolling list.
@@ -205,7 +206,7 @@ export function ProviderMenuList({
 	const listRef = useRef<HTMLUListElement>(null);
 
 	useEffect(() => {
-		searchRef.current?.focus();
+		focusAutomatically(searchRef.current);
 	}, []);
 
 	useEffect(() => {
@@ -335,7 +336,7 @@ export function FontMenuList({
 	const listRef = useRef<HTMLUListElement>(null);
 
 	useEffect(() => {
-		searchRef.current?.focus();
+		focusAutomatically(searchRef.current);
 	}, []);
 
 	useEffect(() => {

@@ -1,0 +1,10 @@
+.git
+node_modules
+.next
+mobile-dist
+dist
+data
+auth.json
+.env*
+*.log
+.fresh-data

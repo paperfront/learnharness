@@ -1,7 +1,10 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/components/navigation";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ai-elements/conversation";
 import { Composer } from "@/components/composer";
 import { DictationBar, joinDictation, useDictation } from "@/components/dictation";
@@ -61,7 +64,12 @@ export async function startDraftSession(
 				: { title: t },
 		),
 	});
-	const { id } = (await res.json()) as { id: string };
+	if (!res.ok) throw new Error(`Session creation failed (${res.status}).`);
+	const body: unknown = await res.json();
+	const id = body && typeof body === "object" && "id" in body ? body.id : undefined;
+	if (typeof id !== "string" || !/^[A-Za-z0-9_-]+$/.test(id)) {
+		throw new Error("Session creation returned an invalid response.");
+	}
 	// No settings PUT on create (per-session models, owner 2026-09-28):
 	// the SERVER stamps the newborn from the strong slot.
 	return `/chat/${id}?prompt=${encodeURIComponent(t)}`;
@@ -83,8 +91,10 @@ export function DraftShell({
 	onOpenPicker,
 	onClearPicks,
 	overlay,
+	error,
 }: {
 	busy: boolean;
+	error?: string | null;
 	text: string;
 	onChange: (v: string) => void;
 	onSend: () => void;
@@ -147,7 +157,7 @@ export function DraftShell({
 			dictationWasActiveRef.current = true;
 		} else if (dictationWasActiveRef.current) {
 			dictationWasActiveRef.current = false;
-			composerInputRef.current?.focus();
+			focusAutomatically(composerInputRef.current);
 		}
 	}, [dictation.active]);
 	return (
@@ -158,7 +168,7 @@ export function DraftShell({
 		 * (the only pointer-events-auto spot), the empty state carrying the
 		 * orientation. The chain picker then owns the column top exactly
 		 * like the graph view's — no stacked bars. */
-		<div className="relative flex h-dvh">
+		<div className="relative flex h-full">
 			{/* Window-drag strip — deliberately FIRST in the DOM (the mask
 			    law: no-drag subtraction resolves by DOM order, so every
 			    carved control later in the tree subtracts correctly). */}
@@ -190,6 +200,7 @@ export function DraftShell({
 									)}
 									setup={setupCta}
 								/>
+								{error && <p role="alert" className="pointer-events-auto mb-2 text-sm text-destructive">{error}</p>}
 								<div className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
 									<Composer
 										busy={busy}
@@ -243,6 +254,8 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 		setText(v);
 	};
 	const [busy, setBusy] = useState(false);
+	const sendingRef = useRef(false);
+	const [error, setError] = useState<string | null>(null);
 	// THE PICK BAR (owner round 10): the draft's lifted pick set + the
 	// snapshot the standalone chain-table picker reads. Lazy — the graph
 	// is fetched on FIRST open only, then reused.
@@ -259,7 +272,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 			setPickerOpen(true);
 			return;
 		}
-		void fetch("/api/graph")
+		void apiFetch("/api/graph")
 			.then((r) => r.json() as Promise<GraphSnapshot>)
 			.then((snap) => {
 				setSnapshot(snap);
@@ -287,7 +300,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 
 	const send = useCallback(() => {
 		const draft = textRef.current.trim();
-		if (!draft || busy) return;
+		if (!draft || sendingRef.current) return;
 		if (!configured) {
 			setSetupOpen(true);
 			return;
@@ -301,18 +314,25 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 			setSetupOpen(true);
 			return;
 		}
+		sendingRef.current = true;
 		setBusy(true);
-		void startDraftSession(draft, fetch, mode === "practice" ? "practice" : undefined, mode === "practice" ? picksRef.current : undefined)
+		setError(null);
+		void startDraftSession(draft, apiFetch, mode === "practice" ? "practice" : undefined, mode === "practice" ? picksRef.current : undefined)
 			.then((target) => {
 				if (target) router.push(target);
-				else setBusy(false);
+				else { sendingRef.current = false; setBusy(false); }
 			})
-			.catch(() => setBusy(false));
-	}, [busy, router, configured, zeroKeys, strongKeyless]);
+			.catch(() => {
+				sendingRef.current = false;
+				setBusy(false);
+				setError("Could not start the session. Your message is still here. Check your connection and try again.");
+			});
+	}, [router, configured, zeroKeys, strongKeyless, mode]);
 
 	return (
 		<>
 			<DraftShell
+				error={error}
 				busy={busy}
 				text={text}
 				onChange={applyText}

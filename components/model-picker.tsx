@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch, onConnectionReset } from "@/lib/api-client";
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatSettings, ModelCatalogEntry, ModelCatalogResponse, ModelsSettings, UserSettings } from "@/src/core";
@@ -22,11 +24,12 @@ let catalogGeneration = 0;
 let stopCatalogSignals: (() => void) | undefined;
 const catalogReaders = new Set<() => void>();
 const publishCatalog = () => { for (const reader of catalogReaders) reader(); };
+onConnectionReset(() => { catalogGeneration++; catalogInflight = undefined; catalogCache = undefined; publishCatalog(); });
 function fetchCatalog(revalidate = false): void {
 	if (revalidate) { catalogGeneration++; catalogInflight = undefined; }
 	if (catalogInflight) return;
 	const generation = catalogGeneration;
-	catalogInflight = fetch("/api/models")
+	catalogInflight = apiFetch("/api/models")
 		.then((r) => { if (!r.ok) throw new Error(`catalog request failed: ${r.status}`); return r.json() as Promise<ModelCatalogResponse>; })
 		.then((c) => { if (generation === catalogGeneration) { catalogCache = c; publishCatalog(); } })
 		.catch(() => { /* existing unavailable/usage-only posture, no retry timer */ })
@@ -98,14 +101,14 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 	// reads the models section alone.
 	const readRecord = useCallback(() => {
 		if (chatId) {
-			fetch(`/api/chats/${chatId}`)
+			apiFetch(`/api/chats/${chatId}`)
 				.then((r) => r.json() as Promise<{ settings?: ChatSettings }>)
 				.then((body) => setSession(body.settings))
 				.catch(() => {
 					/* same read-only posture as a models-section failure */
 				});
 		}
-		fetch("/api/settings")
+		apiFetch("/api/settings")
 			.then((r) => r.json() as Promise<{ settings: { models?: ModelsSettings } | null }>)
 			.then((body) => setModels(body.settings?.models ?? undefined))
 			.catch(() => {
@@ -190,7 +193,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 		async (next: ModelsSettings) => {
 			setError(null);
 			try {
-				const res = await fetch("/api/settings/models", {
+				const res = await apiFetch("/api/settings/models", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(next),
@@ -225,7 +228,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 		async (next: ChatSettings) => {
 			setError(null);
 			try {
-				const res = await fetch(`/api/chats/${chatId}/settings`, {
+				const res = await apiFetch(`/api/chats/${chatId}/settings`, {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(next),

@@ -1,4 +1,7 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
+import { apiFetch } from "@/lib/api-client";
+
 /**
  * The Keys section (wave-5 polish, 2026-09-21 — owner design): a MINIMAL
  * key-value table. Provider left, masked key right, no description hints
@@ -167,7 +170,7 @@ function KeyTableRow({
 						aria-label={`${label} key`}
 						data-testid={`${testid}-input`}
 						disabled={busy}
-						autoFocus
+						ref={focusAutomatically}
 						className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 					/>
 					<button
@@ -352,7 +355,7 @@ export function KeysSection({
 	}, [openRow, adding]);
 
 	const reload = () =>
-		fetch("/api/keys")
+		apiFetch("/api/keys")
 			.then((r) => r.json())
 			.then((body: KeysResponse) => {
 				setStatuses(body.keys ?? []);
@@ -373,7 +376,7 @@ export function KeysSection({
 	}, [initialRow]);
 
 	async function saveKey(id: string, value: string): Promise<string | null> {
-		const res = await fetch(`/api/keys/${id}`, {
+		const res = await apiFetch(`/api/keys/${id}`, {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ value }),
@@ -391,7 +394,7 @@ export function KeysSection({
 	}
 
 	async function deleteKey(id: string): Promise<void> {
-		await fetch(`/api/keys/${id}`, { method: "DELETE" }).catch(() => undefined);
+		await apiFetch(`/api/keys/${id}`, { method: "DELETE" }).catch(() => undefined);
 		await reload();
 		notifySettingsSaved("keys");
 	}
@@ -510,7 +513,7 @@ function AddProviderEditor({
 				placeholder="Paste key…"
 				aria-label={`${provider.label} key`}
 				data-testid={`key-${provider.id}-input`}
-				autoFocus
+				ref={focusAutomatically}
 				className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 			/>
 			<button

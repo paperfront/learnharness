@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch, onConnectionReset } from "@/lib/api-client";
+
 
 import { MessageResponse } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
@@ -33,8 +35,9 @@ import { usePopoverDismiss } from "@/components/popover-dismiss";
  * few KB); failures degrade to raw ids — observability never breaks the
  * card. */
 let nodeNameMapPromise: Promise<Record<string, string>> | null = null;
+onConnectionReset(() => { nodeNameMapPromise = null; });
 function nodeNameMap(): Promise<Record<string, string>> {
-	nodeNameMapPromise ??= fetch("/api/graph")
+	nodeNameMapPromise ??= apiFetch("/api/graph")
 		.then((r) => (r.ok ? r.json() : { nodes: [] }))
 		.then((g: { nodes?: Array<{ id?: unknown; name?: unknown }> }) =>
 			Object.fromEntries(

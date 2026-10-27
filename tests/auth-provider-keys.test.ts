@@ -60,14 +60,21 @@ function deriveProviders() {
 }
 
 describe("AUTH_PROVIDER_KEYS — the no-drift pin against pi-ai", () => {
-	it("is EXACTLY pi-ai's plain-key provider table (id, envVar, label), exclusions applied", () => {
+	it("builtins are EXACTLY pi-ai's plain-key provider table (id, envVar, label), exclusions applied", () => {
 		const truth = deriveProviders();
-		const mine = [...AUTH_PROVIDER_KEYS].sort((a, b) => a.id.localeCompare(b.id));
+		const mine = AUTH_PROVIDER_KEYS.filter((p) => p.id !== "ollama-cloud").sort((a, b) => a.id.localeCompare(b.id));
 		assert.deepEqual(
 			mine.map((p) => [p.id, p.envVar, p.label]),
 			truth.map((p) => [p.id, p.envVar, p.label]),
 			"pi-ai's provider env-key table changed — regenerate AUTH_PROVIDER_KEYS (src/core/auth-keys.ts) from the derivation in this test",
 		);
+	});
+
+	it("adds exactly the app-owned Ollama Cloud provider", () => {
+		const builtinIds = new Set(builtinProviders().map((p) => p.id));
+		assert.deepEqual(AUTH_PROVIDER_KEYS.filter((p) => !builtinIds.has(p.id)), [
+			{ id: "ollama-cloud", envVar: "OLLAMA_API_KEY", label: "Ollama Cloud" },
+		]);
 	});
 
 	it("the owner-spec exclusions are absent", () => {

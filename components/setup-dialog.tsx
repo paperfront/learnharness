@@ -1,4 +1,7 @@
 "use client";
+import { focusAutomatically } from "@/components/touch-layout";
+import { apiFetch } from "@/lib/api-client";
+
 /**
  * The first-run setup flow (model-slots wave, 2026-09-20, owner design
  * "A — composer CTA + send interception"): chats cannot start until the
@@ -192,7 +195,7 @@ export function SetupKeysBody({
 							aria-label={`${provider.label} key`}
 							data-testid="setup-key-input"
 							disabled={saving}
-							autoFocus
+							ref={focusAutomatically}
 							className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-muted-foreground/50"
 						/>
 						<button
@@ -272,11 +275,11 @@ export function SetupDialog({
 		setPicked({});
 		setLevels({});
 		setError(null);
-		fetch("/api/keys")
+		apiFetch("/api/keys")
 			.then((r) => r.json())
 			.then((b: { providers?: ProviderKeyInfo[] }) => { if (!cancelled) setKeyProviders(b.providers ?? []); })
 			.catch(() => { if (!cancelled) setKeyProviders([]); });
-		fetch("/api/models")
+		apiFetch("/api/models")
 			.then((r) => { if (!r.ok) throw new Error("Catalog unavailable"); return r.json(); })
 			.then((b: ModelsBody) => {
 				if (cancelled) return;
@@ -356,7 +359,7 @@ export function SetupDialog({
 		if (!keyProvider || !keyValue.trim() || keySaving) return;
 		setKeySaving(true);
 		setKeyError(null);
-		const res = await fetch(`/api/keys/${encodeURIComponent(keyProvider.envVar)}`, {
+		const res = await apiFetch(`/api/keys/${encodeURIComponent(keyProvider.envVar)}`, {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ value: keyValue }),
@@ -384,7 +387,7 @@ export function SetupDialog({
 				...(level ? { thinkingLevel: level } : {}),
 			};
 		}
-		const res = await fetch("/api/settings/models", {
+		const res = await apiFetch("/api/settings/models", {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(models),
@@ -400,7 +403,7 @@ export function SetupDialog({
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-background/80"
+			className="lh-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80"
 			data-testid="setup-backdrop"
 			{...backdropDismiss}
 		>
@@ -428,7 +431,7 @@ export function SetupDialog({
 				</header>
 
 				{stage === "keys" ? (
-					<div className="flex flex-col px-6 py-5">
+					<div className="min-h-0 overflow-y-auto px-6 py-5">
 						{failed ? (
 							<p className="text-sm text-foreground">
 								Model catalog could not be loaded. Check the connection and retry.

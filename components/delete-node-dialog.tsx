@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -190,7 +192,7 @@ export function DeleteNodeDialog({
 		let revision = 0;
 		try {
 			for (const n of nodes) {
-				const res = await fetch(`/api/graph/nodes/${encodeURIComponent(n.id)}`, { method: "DELETE" });
+				const res = await apiFetch(`/api/graph/nodes/${encodeURIComponent(n.id)}`, { method: "DELETE" });
 				const body = (await res.json()) as {
 					error?: string;
 					code?: string;

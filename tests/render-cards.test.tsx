@@ -15,6 +15,7 @@ import React from "react";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { parseHTML } from "linkedom";
 import { MessageResponse } from "../components/ai-elements/message.tsx";
 import { QuestionDock } from "../components/question-dock.tsx";
 import { ProbeDoneCard } from "../components/artifacts/probe-done-card.tsx";
@@ -172,6 +173,12 @@ describe("render smoke tests", () => {
 		// radio circle + an inline input; picking it never displaces thinking.
 		assert.ok(html.includes('data-testid="other-option"'), "Other is an option row");
 		assert.match(html, /Type your own answer/, "type directly into the option");
+		const {document} = parseHTML(html);
+		const customInput = document.querySelector('[data-testid="other-option"] input')!;
+		assert.equal(customInput.getAttribute("aria-label"), "Type your own answer…");
+		assert.equal(customInput.closest('[role="radio"], [role="checkbox"]'), null,
+			"WKWebView must expose the editable field separately from the selection control");
+		assert.equal(document.querySelector('[data-testid="other-selector"]')?.getAttribute("role"), "radio");
 		assert.ok(html.includes('role="radio"'), "Other row keeps the option role");
 		assert.match(html, /aria-checked="false"/, "circle starts unfilled");
 		assert.ok(html.includes('data-testid="thinking-field"'), "thinking field coexists with Other");

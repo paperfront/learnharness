@@ -70,6 +70,8 @@ export interface QuestionDockProps {
 	 */
 	reveal?: boolean;
 	onExpand: () => void;
+	/** Touch users can read the transcript without losing their answer. */
+	onCollapse?: () => void;
 	onSubmit: (output: QuestionAnswerData) => void;
 	/** Escape in a question field stops dictation (STT wave) — threaded
 	 *  from the page that owns the dictation hook. */
@@ -90,6 +92,8 @@ export interface QuestionDockProps {
 	 *  and say so in the hint row. The server registry is the real gate;
 	 *  this is the affordance. */
 	compactionRunning?: boolean;
+	submitting?: boolean;
+	submitError?: string;
 }
 
 export function QuestionDock({
@@ -99,11 +103,14 @@ export function QuestionDock({
 	expanded,
 	reveal = false,
 	onExpand,
+	onCollapse,
 	onSubmit,
 	onEscape,
 	phase = "probe",
 	dictationClaim = true,
 	compactionRunning = false,
+	submitting = false,
+	submitError,
 }: QuestionDockProps) {
 	// The probe-phase names (owner, 2026-10-09) canonicalize onto their
 	// teach twins for every dock concern — parse dispatch, labels, kinds:
@@ -158,6 +165,9 @@ export function QuestionDock({
 					onEscape={onEscape}
 					dictationClaim={dictationClaim}
 					compactionRunning={compactionRunning}
+					submitting={submitting}
+					submitError={submitError}
+					onCollapse={onCollapse}
 				/>
 			</div>
 		</>
@@ -253,6 +263,9 @@ function QuestionDockForm({
 	onEscape,
 	dictationClaim = true,
 	compactionRunning = false,
+	submitting = false,
+	submitError,
+	onCollapse,
 }: Omit<QuestionDockProps, "expanded" | "onExpand" | "reveal">) {
 	const kind = toolQuestionKind(toolName);
 
@@ -365,7 +378,7 @@ function QuestionDockForm({
 			: sel.dontKnow || (sel.otherSelected && other.trim().length > 0) || sel.selected.size > 0;
 
 	const submit = () => {
-		if (!canSubmit || compactionRunning) return;
+		if (!canSubmit || compactionRunning || submitting) return;
 		/* FINISH DICTATION FIRST (owner, 2026-10-01): Enter may arrive while
 		 * a run is live with reasoning still in Deepgram's hands. Stop the
 		 * run, let the last finals land in the target field, and only then
@@ -540,12 +553,13 @@ function QuestionDockForm({
 	}, [kbdIdx]);
 
 	return (
-		<div ref={rootRef} data-testid="question-dock">
+		<div ref={rootRef} data-testid="question-dock" className="lh-panel-frame">
+			<div className="lh-question-scroll">
 			{/* Question area — scrolls internally if very tall; the bottom row stays put.
 			    Capped by the measured column (--dock-max-h; the old fixed 55dvh cut
 			    long questions short — owner round, 2026-10-05). */}
-			<div data-session-find-root="" className="max-h-[var(--dock-max-h,55dvh)] overflow-y-auto px-4 pt-3">
-				<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+			<div data-session-find-root="" className="lh-question-prose max-h-[var(--dock-max-h,55dvh)] overflow-y-auto px-4 pt-3">
+				<div className="lh-question-label mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 					{toolName === "probe"
 						? "Probe"
 						: toolName === "recall"
@@ -558,6 +572,7 @@ function QuestionDockForm({
 										? "Explain"
 											: "Question"}
 					{qd.mode === "multi-select" && " · select all that apply"}
+					{onCollapse && <button type="button" onClick={onCollapse} className="lh-read-conversation">Read conversation</button>}
 				</div>
 				<div className="mb-3 font-medium">
 					<MessageResponse>{qd.question}</MessageResponse>
@@ -648,10 +663,10 @@ function QuestionDockForm({
 							</button>
 						)}
 
+						{/* Keep the editable input beside the selection control: iOS
+						    accessibility flattens descendants of checkbox/radio roles. */}
 						{kind === "ask" && (
 							<div
-								role={qd.mode === "multi-select" ? "checkbox" : "radio"}
-								aria-checked={sel.otherSelected}
 								data-testid="other-option"
 								data-kbdrow={optionCount}
 								onClick={selectOther}
@@ -661,7 +676,14 @@ function QuestionDockForm({
 									kbdIdx === optionCount && !sel.otherSelected && "ring-1 ring-border bg-accent/40",
 								)}
 							>
-								<span
+								<button
+									type="button"
+									role={qd.mode === "multi-select" ? "checkbox" : "radio"}
+									aria-checked={sel.otherSelected}
+									aria-label="Select custom answer"
+									data-testid="other-selector"
+									tabIndex={-1}
+									onClick={(e) => { e.stopPropagation(); selectOther(); }}
 									className={cn(
 										"mt-0.5 flex size-4 shrink-0 items-center justify-center border",
 										qd.mode === "multi-select" ? "rounded-sm" : "rounded-full",
@@ -675,9 +697,10 @@ function QuestionDockForm({
 											{qd.mode === "multi-select" ? "✓" : ""}
 										</span>
 									)}
-								</span>
+								</button>
 								<input
 									ref={otherInputRef}
+									aria-label="Type your own answer…"
 									value={other}
 									onChange={(e) => {
 										setOther(e.target.value);
@@ -811,13 +834,14 @@ function QuestionDockForm({
 				</div>
 			)}
 
+			</div>
 			{/* The learner's half of the dock — a composer TWIN: a labeled, bordered
 			    field with Submit docked inside, exactly like the chat composer's
 			    send. Select modes get "Your thinking" (Enter makes a newline — it
 			    is for dumping, soon dictated; the button submits); text mode
 			    keeps "Your answer" with Enter-to-submit. */}
 			<form
-				className="border-t border-border/60 p-1.5"
+				className="lh-answer-form border-t border-border/60 p-1.5"
 				onSubmit={(e) => {
 					e.preventDefault();
 					submit();
@@ -894,16 +918,17 @@ function QuestionDockForm({
 							)}
 						/>
 					)}
+					{submitError && <p role="alert" className="max-h-24 overflow-y-auto break-words px-2.5 py-2 text-sm text-destructive">Could not send your answer: {submitError}</p>}
 					<div className="flex items-center justify-between gap-2 p-1">
-						<span aria-hidden className="pl-1.5 text-xs text-muted-foreground">
+						<span aria-hidden className={cn("pl-1.5 text-xs text-muted-foreground", !compactionRunning && "lh-keyboard-hint")}>
 								{compactionRunning ? "compacting session…" : "↵ submits · ⇧↵ newline"}
 						</span>
 						<Button
 							type="submit"
-							disabled={!canSubmit || compactionRunning}
+							disabled={!canSubmit || compactionRunning || submitting}
 							className="ml-auto h-9 rounded-[6px] px-3.5 text-sm font-medium"
 						>
-							Submit answer
+							{submitting ? "Submitting…" : "Submit answer"}
 						</Button>
 					</div>
 				</div>

@@ -246,6 +246,72 @@ body {
 	line-height: 1.25;
 }
 
+.lh-connection-shell { height: 100dvh; }
+.lh-mobile .lh-connection-shell { height: 100%; }
+.lh-connection-form > h1 { margin-top: auto; }
+.lh-connection-form > form { margin-bottom: auto; }
+.lh-connection-form { height: 100dvh; }
+.lh-mobile .lh-connection-form { height: 100%; }
+.lh-question-scroll { display: contents; }
+.lh-read-conversation { display: none; }
+
+@media (max-width: 640px), (max-height: 500px) and (max-width: 960px) {
+	.lh-sidebar { position: absolute; inset-block: 0; left: 0; z-index: 40; }
+	.lh-sidebar-dismiss { display: block; }
+	.lh-dock-block { padding-bottom: 8px; }
+	.lh-dock-block > :first-child { padding-inline: 8px; }
+	.lh-dock-shell .lh-panel-frame {
+		display: flex;
+		flex-direction: column;
+		max-height: calc(var(--dock-shell-max-h, 70dvh) - 2px);
+		min-height: 0;
+	}
+	.lh-question-scroll, .lh-practice-prose {
+		display: block;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior-y: contain;
+		flex: 1 1 auto;
+	}
+	.lh-question-prose, .lh-practice-prose { max-height: none; padding-inline: 12px; }
+	.lh-question-prose { overflow: visible; }
+	.lh-read-conversation {
+		display: block;
+		margin-left: auto;
+		min-height: 44px;
+		flex-shrink: 0;
+		white-space: nowrap;
+		font-size: 12px;
+		text-transform: none;
+		letter-spacing: normal;
+		color: var(--muted-foreground);
+	}
+	.lh-question-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+	.lh-dock-block [data-testid=stats-bar] { gap: 6px; padding-top: 2px; }
+	.lh-dock-block [data-testid=stats-bar] button { min-height: 44px; }
+	.lh-answer-form { flex: 0 0 auto; }
+	.lh-answer-form textarea {
+		min-height: 40px;
+		max-height: min(112px, calc(var(--dock-shell-max-h, 70dvh) * .24));
+	}
+	.lh-keyboard-hint { display: none; }
+	.lh-answer-form button { min-height: 44px; }
+	.lh-question-prose [data-kbdrow] { min-height: 44px; }
+	.lh-question-scroll input[type=range] { min-height: 32px; top: -8px; }
+	/* When the keyboard leaves too little room even for the answer footer,
+	   the whole dock becomes one scroll surface. Every control stays reachable. */
+	.lh-dock-block[data-short=true] {
+		max-height: var(--dock-column-max-h, 70dvh);
+		overflow-y: auto;
+		overscroll-behavior-y: contain;
+		pointer-events: auto;
+	}
+	.lh-dock-block[data-short=true] .lh-panel-frame { display: block; max-height: none; }
+	.lh-dock-block[data-short=true] :is(.lh-question-scroll, .lh-practice-prose) { overflow: visible; }
+	.lh-dock-block[data-short=true] .lh-answer-form textarea { max-height: 80px; }
+	.lh-dialog-backdrop > [role=dialog] { max-height: calc(var(--lh-viewport-height, 100dvh) - 16px); }
+}
+
 /* Thin dark native scrollbar (app-wide): dark thumb, transparent track. */
 * {
 	scrollbar-width: thin;

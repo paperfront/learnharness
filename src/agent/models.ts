@@ -17,6 +17,7 @@ import { chatGPTStream } from "./chatgpt-stream.ts";
 import type { ChatGPTDispatchLifecycle } from "./chatgpt-request-cycle.ts";
 import { nativeSubscriptionId, nativeSubscriptionModel } from "./subscription-bridge.ts";
 import { nativeSubscriptionStream } from "./subscription-stream.ts";
+import { ollamaCloudProvider } from "./ollama-cloud.ts";
 
 /** App identity is immutable and shared by Models and every native Agent.
  * Agent's default Pi attribution otherwise overrides the Models identity. */
@@ -51,7 +52,8 @@ export type { ThinkingLevel };
 let collection: ReturnType<typeof createModels> | undefined;
 
 /** The process-wide pi-ai Models collection — EVERY builtin provider's
- *  catalog (model slots wave, 2026-09-20): engines and the picker resolve
+ *  catalog plus the app-owned Ollama Cloud provider's curated catalog
+ *  (model slots wave, 2026-09-20): engines and the picker resolve
  *  against all of pi-ai's per-provider catalogs, so a settings slot can pin
  *  any native model id. Auth is resolved per request by pi-ai itself from
  *  the environment (the keys seam reflects file-saved keys into env), and
@@ -62,6 +64,7 @@ export function piModels() {
 	if (!collection) {
 		collection = createModels({ identity: APP_IDENTITY });
 		for (const provider of builtinProviders()) collection.setProvider(provider);
+		collection.setProvider(ollamaCloudProvider());
 	}
 	return collection;
 }

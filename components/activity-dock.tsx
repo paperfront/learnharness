@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIcon, BotIcon, FileTextIcon, PenToolIcon, PlayIcon, SearchIcon, SquareIcon, WaypointsIcon } from "lucide-react";
@@ -105,7 +107,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
 		let alive = true;
 		void (async () => {
 			try {
-				const res = await fetch("/api/activity");
+				const res = await apiFetch("/api/activity");
 				if (res.ok) {
 					const data = (await res.json()) as Partial<ActivityFeed>;
 					if (alive)
@@ -309,7 +311,7 @@ export function ActivitySection({ feed: feedProp }: { feed?: ActivityFeed }) {
 		const { setAbortStates: set } = abortRef.current;
 		set((s) => ({ ...s, [blob.id]: "pending" }));
 		try {
-			const res = await fetch("/api/activity/abort", {
+			const res = await apiFetch("/api/activity/abort", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({

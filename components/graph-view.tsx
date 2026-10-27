@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch } from "@/lib/api-client";
+
 
 /**
  * The home knowledge-graph view (W4; vision §1 "Rendering (DECIDED)").
@@ -65,7 +67,7 @@
 
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NotesImportErrors, useNotesImport } from "@/components/notes-import.tsx";
-import Link from "next/link";
+import Link from "@/components/navigation";
 import { FileTextIcon, ListTreeIcon, Loader2Icon, SearchIcon, SettingsIcon, UploadIcon, WaypointsIcon } from "lucide-react";
 import { incrementalLayout, propositionSessionHref, type GraphCostSummary, type GraphNode, type GraphSnapshot } from "@/src/core";
 import { planCostLabel } from "@/components/usage-format";
@@ -1018,14 +1020,14 @@ export function GraphView({
 		setSettings(update);
 	};
 	const saveToServer = (s: RenderSettings) => {
-		fetch("/api/graph/render-settings", {
+		apiFetch("/api/graph/render-settings", {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(s),
 		}).catch((err) => console.error("[graph] settings save failed:", err));
 	};
 	useEffect(() => {
-		fetch("/api/graph/render-settings")
+		apiFetch("/api/graph/render-settings")
 			.then((res) => (res.ok ? (res.json() as Promise<unknown>) : null))
 			.then((raw) => {
 				// Apply only if the user hasn't already moved a slider —
@@ -1085,7 +1087,7 @@ export function GraphView({
 	}, [chainSelectOpen]);
 	useEffect(() => {
 		let cancelled = false;
-		fetch("/api/graph")
+		apiFetch("/api/graph")
 			.then((res) => res.json() as Promise<GraphSnapshot>)
 			.then((data) => {
 				if (!cancelled) setSnapshot(data);
@@ -1130,7 +1132,7 @@ export function GraphView({
 	const [pipelineRuns, setPipelineRuns] = useState<{ id: string; chatId: string; title: string; phase: string; startedAt: number }[]>([]);
 	const rowIdsRef = useRef<Set<string>>(new Set());
 	const readPipelineStatus = useCallback(() => {
-		fetch("/api/graph/status")
+		apiFetch("/api/graph/status")
 			.then((res) => res.json() as Promise<{ runs: typeof pipelineRuns }>)
 			.then(({ runs }) => {
 				setPipelineRuns(runs);
@@ -1172,7 +1174,7 @@ export function GraphView({
 	// the view — the pill just stays on its last numbers.
 	const [costs, setCosts] = useState<GraphCostSummary | null>(null);
 	const refreshCosts = useCallback(() => {
-		fetch("/api/graph/costs")
+		apiFetch("/api/graph/costs")
 			.then((res) => res.json() as Promise<GraphCostSummary>)
 			.then(setCosts)
 			.catch(() => {});
@@ -1381,7 +1383,7 @@ export function GraphView({
 				// Live physics settled: persist the new rest state. Fire-and-
 				// forget — the next snapshot fetch carries the ledger anyway.
 				onCommit: (positions) => {
-					void fetch("/api/graph/positions", {
+					void apiFetch("/api/graph/positions", {
 						method: "PUT",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(positions),

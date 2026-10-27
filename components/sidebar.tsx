@@ -1,8 +1,11 @@
 "use client";
+import { isCompactLayout } from "@/components/touch-layout";
+import { apiFetch, downloadApiFile } from "@/lib/api-client";
+
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "@/components/navigation";
+import { usePathname, useRouter } from "@/components/navigation";
 import { MenuShell } from "@/components/menu-shell";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
 import type { ChatDeleteMode } from "@/src/core";
@@ -95,6 +98,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
+	const pathname = usePathname();
+	useEffect(() => {
+		if (isCompactLayout()) setOpen(false);
+	}, [pathname]);
 
 	useEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
@@ -119,9 +126,21 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
 		const stored = localStorage.getItem(STORAGE_KEY);
 		// Default: open (first run introduces the sidebar).
-		setOpen(stored === null ? true : stored === "1");
+		setOpen(isCompactLayout() ? false : stored === null ? true : stored === "1");
 		setMounted(true);
 		return () => off?.();
+	}, []);
+	useEffect(() => {
+		let previousWidth = window.innerWidth;
+		const resize = () => {
+			const nextCompact = isCompactLayout();
+			// A software keyboard changes height; it must not close sidebar
+			// search while the learner is typing into it.
+			if (nextCompact && previousWidth !== window.innerWidth) setOpen(false);
+			previousWidth = window.innerWidth;
+		};
+		window.addEventListener("resize", resize);
+		return () => window.removeEventListener("resize", resize);
 	}, []);
 
 	// Narrow-window auto-close/auto-restore (see SIDEBAR_AUTOCLOSE note):
@@ -170,7 +189,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<SidebarContext.Provider value={{ open: open && !narrow, toggle }}>
 			{/* transitions gated on mount: no slide-in flash on page load */}
-			<div className={cn("flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
+			<div className={cn("relative flex h-full min-h-0", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
 		</SidebarContext.Provider>
 	);
 }
@@ -429,7 +448,7 @@ function SessionsSidebar() {
 		if (refreshInFlightRef.current) return;
 		refreshInFlightRef.current = true;
 		try {
-			const res = await fetch("/api/chats", { cache: "no-store" });
+			const res = await apiFetch("/api/chats", { cache: "no-store" });
 			const d = (await res.json()) as { chats: ChatListItem[] };
 			setChats(d.chats);
 		} catch {
@@ -582,7 +601,7 @@ function SessionsSidebar() {
 		const t = next.trim();
 		if (t === "") return;
 		try {
-			const res = await fetch(`/api/chats/${id}`, {
+			const res = await apiFetch(`/api/chats/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ title: t }),
@@ -636,7 +655,7 @@ function SessionsSidebar() {
 
 	return (
 		<aside
-			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			className={cn("lh-sidebar sidebar-motion max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
 			aria-hidden={!open}
 		>
 			<div className="flex h-full w-72 flex-col border-r bg-background">
@@ -892,12 +911,9 @@ function SessionsSidebar() {
 							onClick={() => {
 								const chatId = ctxChatId;
 								setCtxChatId(null);
-								const a = document.createElement("a");
-								a.href = `/api/chats/${chatId}/markdown`;
-								a.download = ""; // the route's filename wins
-								document.body.appendChild(a);
-								a.click();
-								a.remove();
+								void downloadApiFile(`/api/chats/${encodeURIComponent(chatId)}/markdown`, `${chatId}.md`).catch((cause: unknown) => {
+                                    window.alert(cause instanceof Error ? cause.message : "Export failed.");
+                                });
 							}}
 							className="flex items-center rounded-lg px-2.5 py-1.5 text-left text-foreground transition-colors hover:bg-accent"
 						>
@@ -933,8 +949,10 @@ function SessionsSidebar() {
 
 /** The app frame: sidebar inline + content. Rendered once in the root layout. */
 export function AppShell({ children }: { children: React.ReactNode }) {
+	const { open, toggle } = useSidebar();
 	return (
 		<SettingsDialogProvider>
+			{open && <button aria-label="Dismiss sidebar" onClick={toggle} className="lh-sidebar-dismiss absolute inset-0 z-30 bg-black/50 sm:hidden" />}
 			<SessionsSidebar />
 			<main className="min-w-0 flex-1">{children}</main>
 			{/* The single document-level keydown listener (keyboard wave A) —
